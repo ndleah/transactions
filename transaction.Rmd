@@ -1,0 +1,147 @@
+---
+title: "Predictive Modelling on Financial Transactions"
+author: "Leah Nguyen"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 4
+    self_contained: yes
+    smart: no
+    number_sections: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+# Introduction
+
+```{r setup, echo=FALSE, 	message = FALSE,warning = FALSE}
+knitr::opts_chunk$set(center = TRUE)
+```
+
+```{r, echo=FALSE, message = FALSE, warning = FALSE}
+library(here) # assess the file path
+library(DataExplorer) # EDA visualizations
+library(tidyverse) # data wrangling
+library(kableExtra) # write table
+```
+
+
+This article aims to analyse and provide insights from the monthly transaction data set in order to better understand the customer transaction patterns. The article also offers a study on linear regression model, an important concept in the field of machine learning, and discusses how this model can assist in the decision-making process of identifying trends in bank transactions within the years of 2013 - 2016.
+
+To well capture this information, the CRISP-DM management model is adopted to provide a structured planning approach to a data mining project with 6 high-level phases. In particular, these phases assist companies in comprehending the data mining process and serve as a road map for planning and executing a data mining project (Medeiros, 2021). This study explores each of the six phases, and the tasks associated with each in the following orders:
+
+* Business understanding
+* Data understanding
+* Data preparation
+* Modeling
+* Evaluation
+* Deployment
+
+```{r residuals, echo=FALSE, out.width="40%",fig.cap="Cross-Industry Standard Process for Data Mining (CRISP-DM project, 2000)",fig.align="center"}
+knitr::include_graphics("img/CRISP-DM.png")
+```
+
+# Business understanding
+
+**Business Understanding** is the first taken step in the CRISP-DM methodology. In this stage, the main task is to understand the purpose of the analysis and to provide a clear and crisp definition of the problem in respect of understanding the *Business objectives* and *Data mining objectives*.
+
+
+In our case study, the posed question related Business object paraphrased from the sale manager's request is: “what is driving the trends and increase total monthly revenue?”. On the other hand, we wish to achieve the data mining object by applying data visualization tools to identify any underlying patterns from the dataset.
+
+# Data Understanding
+
+Following that, the **Data Understanding** or Exploratory Data Analysis (EDA) phase is where we focus on understanding the data collected to support the Business Understanding and resolve the business challenge (Wijaya, 2021). Visualization techniques play an essential role in this. Thus, The data was imported into the software package R to construct visualizations represented the findings found during the analysis.
+
+Additionally, a two-stage approach is adopted to specify the content in this section, with [Stage 1](#edastage1) devoted to basic exploration and [Stage 2](#edastage2) devoted to univariate, bivariate, and multivariate analysis.
+
+
+## Stage 1: Basic Exploration {#edastage1}
+
+Once data is loaded, we explore the data with the goal of understanding its dimensions, data types, and distribution of values. In this assignment, a time series data set of financial transactions was used as the major source of data. As apparent from the table below, the data records 470,000+ observations across 5 columns, which are equivalent to 94,000+ bank transactions. There is no missing values can be found on any fields of data.
+
+```{r message=FALSE, center=TRUE}
+# create a data frame to read the transaction data 
+df <- read_csv(here("dataset/transactions.csv"))
+
+# Quick summary: index and column data types, non-null values and memory usage
+df_overview <- introduce(df) %>%
+  t() # transpose the info for better format
+
+  
+df_overview %>% # turn output into a table format
+  kbl() %>% 
+  kable_styling(bootstrap_options = "striped",full_width = F) # apply bootstrap theme to the table
+```
+Alternatively, the code block below illustrates a graphical illustration of the table above.
+
+```{r fig.align="center", fig.cap="Missing values plot"}
+# Plot the Quick summary information of the data set
+plot_intro(df)
+```
+
+
+As illustrated in Table [], 5 features contained in this data set, namely `date`,	`customer_id`, `industry`,	`location`,	`monthly_amount`, clearly indicates the total transactions amounts for customers each month spanning a 3-year period over a range of industries and locations. These features are made up in multiple formats that include both numerical and time-series data. However, it should be noticed that the `date` column has the wrong data type which will need to be further justified later.
+
+```{r}
+summary(df)
+```
+Next,
+```{r}
+# get introduced to your newly created dataset
+plot_intro(df)
+```
+```{r}
+plot_str(df)
+```
+
+```{r}
+# View missing value distribution
+plot_missing(df)
+```
+
+```{r}
+## View histogram of all continuous variables
+plot_histogram(df)
+```
+
+```{r}
+## View estimated density distribution of all continuous variables
+plot_density(df, ncol = 3)
+```
+
+```{r}
+## View overall correlation heatmap
+plot_correlation(na.omit(df), type = "continuous")
+```
+
+. Having known this information is essentially important to gain better understandings about the transaction dataset and provide great insight for dealing with the later stage.
+
+## Exploratory Data Analysis (EDA) {#EDA}
+
+
+
+# Data preparation
+
+
+# Modeling
+
+
+# Evaluation
+
+
+# Deployment
+
+
+# References
+
+
+# Appendix
+
+
+## Appendix 1: Data Description
+
+
+

@@ -5,9 +5,6 @@ date: "`r Sys.Date()`"
 output:
   html_document:
     fig_caption: yes
-    fig_height: 4
-    fig_width: 4
-    self_contained: yes
     smart: no
     number_sections: true
     toc: true
@@ -22,10 +19,15 @@ knitr::opts_chunk$set(center = TRUE)
 ```
 
 ```{r, echo=FALSE, message = FALSE, warning = FALSE}
-library(here) # assess the file path
+library(here)         # assess the file path
 library(DataExplorer) # EDA visualizations
-library(tidyverse) # data wrangling
-library(kableExtra) # write table
+library(tidyverse)    # data wrangling
+library(kableExtra)   # write table
+library(ggplot2)      # data visualization
+library(sqldf)        # using SQL
+library(car)          # calculate the VIF 
+library(dplyr)        # data processing
+library(gganimate)    # create animated plots
 ```
 
 
@@ -60,7 +62,8 @@ Additionally, a two-stage approach is adopted to specify the content in this sec
 
 ## Stage 1: Basic Exploration {#edastage1}
 
-Once data is loaded, we explore the data with the goal of understanding its dimensions, data types, and distribution of values. In this assignment, a time series data set of financial transactions was used as the major source of data. As apparent from the table below, the data records 470,000+ observations across 5 columns, which are equivalent to 94,000+ bank transactions. There is no missing values can be found on any fields of data.
+Once data is loaded, we explore the data with the goal of understanding its dimensions, data types, and distribution of values. In this assignment, a time series data set of financial transactions was used as the major source of data. The attributes information is specifically presented in Appendix []. As apparent from the table below, the data records 470,000+ observations across 5 columns, which are equivalent to 94,000+ bank transactions.
+
 
 ```{r message=FALSE, center=TRUE}
 # create a data frame to read the transaction data 
@@ -81,53 +84,227 @@ Alternatively, the code block below illustrates a graphical illustration of the 
 # Plot the Quick summary information of the data set
 plot_intro(df)
 ```
+From the plot, it is said that there is no missing values on any fields of data. Nevertheless, some data sets define missing observations in categorical/character columns as a new category such as `"NA"`, `"NULL` just to name a few. Thus, there are chances that we can possibly miss these observations, which can lay a tremendous negative impact on the real data distribution. Consequently, a further address on the missing values of our categorical columns need to be made in order to confirm this observation.
 
-
-As illustrated in Table [], 5 features contained in this data set, namely `date`,	`customer_id`, `industry`,	`location`,	`monthly_amount`, clearly indicates the total transactions amounts for customers each month spanning a 3-year period over a range of industries and locations. These features are made up in multiple formats that include both numerical and time-series data. However, it should be noticed that the `date` column has the wrong data type which will need to be further justified later.
-
-```{r}
-summary(df)
-```
-Next,
-```{r}
-# get introduced to your newly created dataset
-plot_intro(df)
-```
-```{r}
-plot_str(df)
-```
+The output below interprets that there is no new missing value category exists in categorical columns. Thus, we can confirm our hypothesis that there is no missing values from both numerical and categorical columns in this data set.
 
 ```{r}
-# View missing value distribution
-plot_missing(df)
+# convert character values of character columns to upper case for better checking
+missing_df <- data.frame(lapply(df, function(v) {
+  if (is.character(v)) return(toupper(v))
+  else return(v)
+}))
+
+# check if there is there is missing values assigned under new category such as "NA","N/A","NULL",""
+
+# date column
+sprintf(paste0("Is there any missing value observation categories in date column (T/F)?: ", missing_df[1] %in% c("NA","N/A","NULL","")))
+
+# customer_id column
+sprintf(paste0("Is there any missing value observation categories in customer_id column (T/F)?: ", missing_df[1] %in% c("NA","N/A","NULL","")))
 ```
+The 5 features contained in this data set including `date`,	`customer_id`, `industry`,	`location`,	`monthly_amount`, clearly indicates the total transactions amounts for customers each month spanning a 3-year period over a range of industries and locations. Therefore, no further justification needs to be made on column names. 
+
+It is also worthwhile to note that these features are made up in multiple formats that include both numerical and time-series data. However, the output shows that the `date` column has the wrong data type which will need to be converted to date format later. 
+
+Additionally, I investigate further by looking at the response field. Recall from the business question, we would expect to use the `monthly_amount` column as the target field since our goal is to get the predicted value of the monthly transaction value next month. Since the observation in this column are continuous, thus, I can conclude that our problem is defined as the supervised regression problem. Having known this information is extremely essential to select the right Machine Learning model in the later stage of this report. 
+
 
 ```{r}
-## View histogram of all continuous variables
-plot_histogram(df)
+# inspect columns data type
+sapply(df, class)
+```
+Next, 
+
+##  Stage 2: Univariate, Bivariate & Multivariate Analysis {#edastage2}
+
+### Univariate: Check the distribution of each field
+
+In research from Sharma (2020), the distributions of the independent variable and the target variable are assumed to be similar in linear models. Therefore, understanding the skewness of data helps us in creating better linear models. 
+
+The graph below shows which group of industry and location statistically contribute the most to the significant difference. As can be seen in the histograms below, the location 1 and 2 made the top contributions for the `Industry` column while the industry 2 and industry 1 occupied for the highest frequency distribution for the `Location` column.
+
+These results imply that the model can perform better at predicting the total transaction amount for next month with location 1, 2 and/or industry 1, 2.
+
+
+```{r fig.align="center", fig.cap="Data distribution", message=FALSE, warning=FALSE}
+## plot data distribution of MONTHLY_AMOUNT group by NDUSTRY
+par(mfrow=c(1,2)) # combine 2 plots into 1 plot
+
+hist(df$industry, 
+     main = "Trans by Industry", 
+     xlab="Industry", 
+     xlim = c(0,10), 
+     ylim=c(0,50000), 
+     las=0)
+
+## plot data distribution of MONTHLY_AMOUNT group by LOCATION
+hist(df$location, 
+     main = "Trans by Location", 
+     xlab="Location", 
+     xlim = c(0,10), 
+     ylim=c(0,50000), 
+     las=0)
 ```
 
-```{r}
-## View estimated density distribution of all continuous variables
-plot_density(df, ncol = 3)
-```
+
 
 ```{r}
 ## View overall correlation heatmap
 plot_correlation(na.omit(df), type = "continuous")
 ```
 
-. Having known this information is essentially important to gain better understandings about the transaction dataset and provide great insight for dealing with the later stage.
+Having known this information is essentially important to gain better understandings about the transaction data set and provide great insight for transforming data in the later stage.
 
-## Exploratory Data Analysis (EDA) {#EDA}
+
 
 
 
 # Data preparation
+After conducting an inspection of retail transaction data, it is known that there are:
+
+1. Data types that are not suitable.\
+2. The data set has class imbalance for some discrete columns.\
+3.
+
+
+```{r fig.align="center", message=FALSE, warning=FALSE}
+# convert date column into the date format
+df$date <- as.Date(df$date,"%d/%m/%Y")
+# convert location column into character format
+df$location <- as.character(df$location)
+# convert industry column into character format
+df$industry <- as.character(df$industry)
+
+#######################################################
+# TABLE TRANSFORMATION
+#######################################################
+
+# create new df contain total transaction amount and number of transaction over time
+time_series_df <- sqldf(
+"SELECT
+  date,
+  SUM(monthly_amount) AS transaction_amount, -- sum total transaction amount
+  COUNT(*) as transaction_count              -- count total number of transactions
+FROM df
+GROUP BY date                                -- filter by date
+ORDER BY date
+"
+)
+
+# create new df contain total transaction by industry over time
+industry <- sqldf(
+"SELECT
+  date,
+  industry,
+  SUM(monthly_amount) AS transaction_amount, -- sum total transaction amount
+  COUNT(*) as transaction_count              -- count total number of transactions
+FROM df
+GROUP BY 
+  date,                                      -- filter by date
+  industry                                   -- filter by industry
+ORDER BY date
+"
+)
+
+# create new df contain total transaction by location over time
+location <- sqldf(
+"SELECT
+  date,
+  location,
+  SUM(monthly_amount) AS transaction_amount, -- sum total transaction amount
+  COUNT(*) as transaction_count              -- count total number of transactions
+FROM df
+GROUP BY 
+  date,                                      -- filter by date
+  location                                   -- filter by location
+ORDER BY date
+"
+)
+```
+
+```{r}
+#######################################################
+# DATA VISUALIZATION
+#######################################################
+
+# plot transaction amount over time
+monthly_amount_plot <- ggplot(time_series_df) +
+  aes(x = date, y = transaction_amount) +
+  geom_line(colour = "#B22222") +
+  geom_point(size = 2, show.legend = FALSE) +
+  labs(x = "Year", y = "Total transaction amount") +
+  theme_minimal() +
+  transition_reveal(date) # gganimate specific bits
+
+# plot number of transaction count over time
+transaction_count_plot <- ggplot(time_series_df) +
+  aes(x = date, y = transaction_count) +
+  geom_line(size = 0.7, colour = "#B22222") +
+  geom_point() +
+  labs(x = "Year", y = "Number of transaction") +
+  theme_minimal() +
+  transition_reveal(date) # gganimate specific bits
+
+# plot number of transaction count over time
+transaction_count_plot <- ggplot(time_series_df) +
+ aes(x = date, y = transaction_count) +
+ geom_point(shape = "circle", size = 2, 
+ colour = "#FF058F") +
+ geom_smooth(span = 0.1) +
+ labs(y = "Number of transactions") +
+ theme_minimal() +
+ theme(plot.title = element_text(size = 12L, hjust = 0.5), axis.title.y = element_text(size = 12L))
+
+
+# plot transaction info by industry
+# industry_plot <- ggplot(industry) +
+#  aes(x = date, y = transaction_amount, colour = industry, group = industry) +
+#  geom_segment(aes(xend = as.Date("1/1/2013","%d/%m/%Y"), 
+#                   yend = as.Date("1/11/2016","%d/%m/%Y")), 
+#               linetype = 2, 
+#               colour = 'grey', 
+#               show.legend = FALSE) + 
+#  geom_line(size = 0.5) +
+#  geom_text(aes(x = 2019.1, label = industry, color = "#000000"), hjust = 0, show.legend = FALSE) +  
+#  scale_color_hue(direction = 1) +
+#  labs(x = "Year", y = "Total transaction amount", title = "Transaction amount by industry") +
+#  theme_minimal() +
+#  theme(plot.title = element_text(size = 15L, face = "bold"))
+# industry_plot
+
+# plot transaction info by location
+ggplot(industry) +
+ aes(x = date, y = transaction_count, colour = industry, group = industry) +
+ geom_line(size = 0.5) +
+ scale_color_hue(direction = 1) +
+ labs(x = "Year", y = "Number of transaction", title = "Transaction amount by industry") +
+ theme_minimal() +
+ theme(plot.title = element_text(size = 15L, face = "bold")) +
+  transition_reveal(date) # gganimate specific bits
+
+
+# combine multiple plots into 1 single page
+```
+
+
 
 
 # Modeling
+```{r regression models, eval=FALSE, include=FALSE}
+#fit the regression model
+model <- lm(monthly_amount ~ ., data = df)
 
+#view the output of the regression model
+summary(model)
+```
+
+```{r eval=FALSE, include=FALSE}
+# calculate the VIF for each predictor variable in the model
+
+vif(model)
+
+```
 
 # Evaluation
 
@@ -137,6 +314,11 @@ plot_correlation(na.omit(df), type = "continuous")
 
 # References
 
+1. Medeiros, L. (2021, December 19). The CRISP-DM methodology - Lucas Medeiros. Medium. https://medium.com/@lucas.medeiross/the-crisp-dm-methodology-d1b1fc2dc653
+
+2. Sharma, A. (2020, December 23). What is Skewness in Statistics? | Statistics for Data Science. Analytics Vidhya. https://www.analyticsvidhya.com/blog/2020/07/what-is-skewness-statistics/Wijaya, C. Y. (2021, December 19). 
+
+3. CRISP-DM Methodology For Your First Data Science Project. Medium. https://towardsdatascience.com/crisp-dm-methodology-for-your-first-data-science-project-769f35e0346c
 
 # Appendix
 
@@ -144,4 +326,12 @@ plot_correlation(na.omit(df), type = "continuous")
 ## Appendix 1: Data Description
 
 
+```{r message=FALSE, warning=FALSE, center=TRUE}
+## load data description csv file
+dd <- read_csv(here("dataset/data_description.csv"))
 
+# display the information under table format
+dd %>%
+  kbl() %>%
+  kable_styling(full_width = F)
+```

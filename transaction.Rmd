@@ -24,12 +24,15 @@ library(DataExplorer) # EDA visualizations
 library(tidyverse)    # data wrangling
 library(kableExtra)   # write table
 library(ggplot2)      # data visualization
+library(ggradar)     # plot seasonal trend
 library(sqldf)        # using SQL
 library(car)          # calculate the VIF 
 library(dplyr)        # data processing
 library(gganimate)    # create animated plots
 library(ggpubr)       # comebine plots into single page
 theme_set(theme_pubr())
+library(magick)       # combine animated plots
+library(reshape2)     # transpose table
 ```
 
 
@@ -156,18 +159,18 @@ hist(df$location,
 plot_correlation(na.omit(df), type = "continuous")
 ```
 
-Having known this information is essentially important to gain better understandings about the transaction data set and provide great insight for transforming data in the later stage.
+Having known this information is essentially important to gain better understandings about the transaction data set and provide great insights for transforming data in the later stage.
 
 
 
 
 
 # Data preparation
-After conducting an inspection of retail transaction data, it is known that there are:
+After conducting an inspection of retail transaction data, following issues are indicated:
 
-1. Data types that are not suitable.\
+1. There is a wrong data types in `Date` column.\
 2. The data set has class imbalance for some discrete columns.\
-3.
+3. The number in transaction
 
 
 ```{r fig.align="center", message=FALSE, warning=FALSE}
@@ -230,9 +233,9 @@ ORDER BY date
 )
 ```
 
-```{r}
+```{r fig.align="center", fig.cap="Transaction amount vs. transaction number trend over time", message=FALSE, warning=FALSE}
 #######################################################
-# DATA VISUALIZATION
+# Transaction amount vs. transaction number trend over time
 #######################################################
 
 # plot transaction amount over time
@@ -240,68 +243,109 @@ monthly_amount_plot <- ggplot(time_series_df) +
   aes(x = date, y = transaction_amount) +
   geom_line(colour = "#B22222") +
   geom_point(size = 2, show.legend = FALSE) +
-  geom_text(aes(date, transaction_amount, label = transaction_amount), hjust=-0.1) +
+  geom_text(aes(date, transaction_amount, label = sprintf("%0.2f", round(transaction_amount, digits = 2)), hjust=-0.1)) +
   labs(x = "Year", y = "Total transaction amount in millions") +
   theme_minimal() +
-  transition_reveal(date) # gganimate specific bits
+  transition_reveal(date)               # gganimate specific bits
 
-monthly_amount_plot
+a_gif <- animate(monthly_amount_plot,   # animate the plot
+                  fps = 25,
+                  duration = 25,
+                  width = 400, height = 400,
+                  renderer = gifski_renderer("img/animation.gif"))
+
 
 # plot number of transaction count over time
 transaction_count_plot <- ggplot(time_series_df) +
   aes(x = date, y = transaction_count) +
   geom_line(size = 0.7, colour = "#B22222") +
   geom_point() +
-  geom_text(aes(date, transaction_count, label = transaction_count), hjust=-0.1) +
+  geom_text(aes(date, transaction_count, label = sprintf("%0.2f", round(transaction_count)), hjust=-0.1)) +
   labs(x = "Year", y = "Number of transaction") +
   theme_minimal() +
   transition_reveal(date) # gganimate specific bits
 
-transaction_count_plot
+b_gif <- animate(transaction_count_plot, # animate the plot
+                  fps = 25,
+                  duration = 25,
+                  width = 400, height = 400,
+                  renderer = gifski_renderer("img/animation2.gif"))
 
-# plot number of transaction count over time
-# transaction_count_plot <- ggplot(time_series_df) +
-#  aes(x = date, y = transaction_count) +
-#  geom_point(shape = "circle", size = 2, 
-#  colour = "#FF058F") +
-#  geom_smooth(span = 0.1) +
-#  geom_text(aes(date, transaction_count, label = transaction_count), hjust=-0.1) +
-#  labs(y = "Number of transactions") +
-#  theme_minimal() +
-#  theme(plot.title = element_text(size = 12L, hjust = 0.5), axis.title.y = element_text(size = 12L))
 
+# Read individual images from each GIF
+a_mgif <- image_read(a_gif) 
+b_mgif <- image_read(b_gif)
+
+
+# join all plots together into 1 single page
+new_gif <- image_append(c(a_mgif[1], b_mgif[1]))
+for(i in 2:250){
+  combined <- image_append(c(a_mgif[i], b_mgif[i]))
+  new_gif <- c(new_gif, combined)
+}
+
+new_gif # display final plot
+```
+
+```{r}
+new_ts_df <- sqldf(
+"SELECT
+   strftime('%m', date) as month,
+   strftime('%Y', date * 3600 * 24,'unixepoch') as year,
+  SUM(monthly_amount) AS transaction_amount
+FROM df
+GROUP BY
+  month,
+  year
+ORDER BY
+  month,
+  year
+"
+)
+
+
+monthly_trend <- recast(new_ts_df, year + variable ~ month, id.var = c("month", "year"))
+monthly_trend <- data.frame(monthly_trend[,-1], row.names = monthly_trend[,1])
+monthly_trend <- subset(monthly_trend, select = -variable)
+
+# create new vector specify month column names
+
+colnames(monthly_trend) <- c('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')
+
+```
+
+
+```{r fig.align="center", fig.cap="Transaction amount vs. transaction number trend over time", message=FALSE, warning=FALSE}
+#######################################################
+# Monthly transaction amount by country and location over time
+#######################################################
 
 # plot transaction info by industry
-# animacion <- industry %>%
-#   ggplot() +
-#   geom_col(aes(ranking, transaction_amount, fill = industry)) +
-#   geom_text(aes(ranking, transaction_amount, label = transaction_amount), hjust=-0.1) +
-#   geom_text(aes(ranking, y=0 , label = industry), hjust=1.1) + 
-#   geom_text(aes(x=15, y=max(transaction_amount) , label = as.factor(date)), vjust = 0.2, alpha = 0.5,  col = "gray", size = 20) +
-#   coord_flip(clip = "off", expand = FALSE) + scale_x_reverse() +
-#   theme_minimal() + theme(
-#     panel.grid = element_blank(), 
-#     legend.position = "none",
-#     axis.ticks.y = element_blank(),
-#     axis.title.y = element_blank(),
-#     axis.text.y = element_blank(),
-#     plot.margin = margin(1, 4, 1, 3, "cm")
-#   ) +
-#   transition_states(date, state_length = 0, transition_length = 2) +
-#   enter_fade() +
-#   exit_fade() + 
-#   ease_aes('quadratic-in-out') 
-# 
-# animate(animacion, width = 700, height = 432, fps = 25, duration = 15, rewind = FALSE)
+industry_amount_plot <- location_amount_plot <- ggplot(industry) +
+  aes(x = date, y = transaction_amount, colour = industry) +
+  geom_line(size = 0.5) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
 
 
 # plot transaction info by location
-# figure <- ggarrange(monthly_amount_plot, transaction_count_plot,
-#                     labels = c("A", "B"),
-#                     ncol = 2)
-# figure
-# combine multiple plots into 1 single page
+location_amount_plot <- ggplot(location) +
+  aes(x = date, y = transaction_amount, colour = location) +
+  geom_line(size = 0.5) +
+  scale_color_hue(direction = 1) +
+  theme_minimal()
+  
+ggarrange(industry_amount_plot, location_amount_plot,
+          labels = c("$ by industry", "$ by location"),
+                    ncol = 2, nrow = 1) 
+
+
 ```
+
+```{r}
+
+```
+
 
 
 Here the dark squares represent a strong correlation (close to 1) while the lighter ones represent the weaker correlation(close to 0). That’s the reason, all the diagonals are dark blue, as a variable is fully correlated with itself.

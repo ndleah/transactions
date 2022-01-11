@@ -122,6 +122,58 @@ sprintf(paste0("How many rows contained 0 value in monthly transaction amount?: 
 
 In research from Sharma (2020), the distributions of the independent variable and the target variable are assumed to be similar in linear models. Therefore, understanding the skewness of data helps us in creating better linear models. 
 
+#### Numerical 
+Next, let’s visualise the dataset to see which group of industry and location statistically contribute the most to the significant difference.
+
+```{r fig.align="center", fig.cap="Data distribution", message=FALSE, warning=FALSE}
+# combine 2 plots into 1 plot
+par(mfrow=c(1,2))
+
+# plot data distribution of MONTHLY_AMOUNT group by INDUSTRY
+hist(df$industry, # create historgram
+     main = "Trans by Industry", 
+     xlab="Industry", 
+     xlim = c(0,10), 
+     ylim=c(0,50000), 
+     las=0)
+
+## plot data distribution of MONTHLY_AMOUNT group by LOCATION
+hist(df$location, # create histogram
+     main = "Trans by Location", 
+     xlab="Location", 
+     xlim = c(0,10), 
+     ylim=c(0,50000), 
+     las=0)
+```
+
+```{r message=FALSE, warning=FALSE}
+# combine 2 plots into 1 plot
+par(mfrow=c(1,2)) 
+
+# plot boxplot to check for outliers
+boxplot(monthly_amount~industry, 
+        data=df, 
+        main='Transaction vs. Industry',
+        xlab='Industry', 
+        ylab='Transaction Amount', 
+        horizontal=TRUE) + 
+  scale_fill_grey() + 
+  theme_classic()
+
+boxplot(monthly_amount~location, 
+        data=df, 
+        main='Transaction vs. Location',
+        xlab='Location', 
+        ylab='Transaction Amount', 
+        horizontal=TRUE) + 
+  scale_fill_grey() + 
+  theme_classic()
+```
+
+As can be seen from the plot, the location 1 and 2 made the top contributions for the `Industry` column while the industry 2 and industry 1 occupied for the highest frequency distribution for the `Location` column. These results imply that the model can perform better at predicting the total transaction amount for next month with location 1, 2 and/or industry 1, 2.
+
+Having known this information is essentially important to gain better understandings about the transaction data set and provide great insights for transforming data in the later stage.
+
 However, before doing that, the previous issues indicated in this dataset need to be addressed:
 
 1. There is a wrong data types in `Date` column. Convert it into the right format\
@@ -145,46 +197,10 @@ df$location <- as.character(df$location)
 df$industry <- as.character(df$industry)
 ```
 
-Next, let’s visualise the dataset to see which group of industry and location statistically contribute the most to the significant difference.
-
-```{r fig.align="center", fig.cap="Data distribution", message=FALSE, warning=FALSE}
-## plot data distribution of MONTHLY_AMOUNT group by INDUSTRY
-par(mfrow=c(1,2)) # combine 2 plots into 1 plot
-
-hist(df$industry, # create historgram
-     main = "Trans by Industry", 
-     xlab="Industry", 
-     xlim = c(0,10), 
-     ylim=c(0,50000), 
-     las=0)
-
-## plot data distribution of MONTHLY_AMOUNT group by LOCATION
-hist(df$location, # create histogram
-     main = "Trans by Location", 
-     xlab="Location", 
-     xlim = c(0,10), 
-     ylim=c(0,50000), 
-     las=0)
-```
-
-As can be seen from the plot, the location 1 and 2 made the top contributions for the `Industry` column while the industry 2 and industry 1 occupied for the highest frequency distribution for the `Location` column. These results imply that the model can perform better at predicting the total transaction amount for next month with location 1, 2 and/or industry 1, 2.
-
-Having known this information is essentially important to gain better understandings about the transaction data set and provide great insights for transforming data in the later stage.
-
-
-# Data preparation
-
-The goal will be to build a model that can predict future monthly_amounts.
-
-We will need to add a new variable called “time_number”, which is an integer describing the date order of rows in the dataset. For example: January, 2013 becomes 1, February 2013 becomes 2 etc. We will then do a rough 70:30 test:train data split, ensuring that the lower values seen across December are represented in our testing set.
-
-Aggregate the data, grouping by date, industry and location, and calculating the mean monthly_amount
-
 ```{r fig.align="center", message=FALSE, warning=FALSE}
 #######################################################
 # DATA PREPARATION
 #######################################################
-
 ############################
 # DATA TABLE TRANSFORMATION
 ############################
@@ -247,12 +263,6 @@ ORDER BY date
 )
 ```
 
-```{r}
-#Mutate the dataset to create a new column called 'monthly_amount_above_mean'  
-# transactions_with_mean_boolean <- transactions %>%
-#   # creating a new variable to classify transaction column
-#   mutate(monthly_amount_above_mean = ifelse(monthly_amount > mean(monthly_amount), TRUE, FALSE))
-```
 
 ```{r fig.align="center", fig.cap="Transaction amount vs. transaction number trend over time", message=FALSE, warning=FALSE}
 #################################################################
@@ -292,6 +302,41 @@ ggarrange(monthly_amount_plot,
 
 Number of transactions and total amount of sales rose sharply throughout the years, from 2013 to 2017. The seasonal trend can be found on total amount of sales while the up trend for number of transactions is quite smooth. 
 
+```{r fig.align="center", fig.cap="Transaction amount by Location vs. Industry", message=FALSE, warning=FALSE}
+#######################################################
+# Monthly transaction amount by country and location over time
+#######################################################
+
+# plot transaction info by industry
+industry_amount_plot <- location_amount_plot <- ggplot(industry) +
+  aes(x = date, y = transaction_amount, colour = industry) +
+  geom_line(size = 1) +
+  scale_color_hue(direction = 1) +
+  labs(x = "Year", 
+       y = "Total transaction amount (in millions)",
+       title = "Transaction Amount",
+       subtitle = "By industry (from 2013 to 2016)") +
+  theme_minimal()
+
+
+# plot transaction info by location
+location_amount_plot <- ggplot(location) +
+  aes(x = date, y = transaction_amount, colour = location) +
+  geom_line(size = 1) +
+  scale_color_hue(direction = 1) +
+  labs(x = "Year", 
+       y = "Total transaction amount (in millions)",
+       title = "Transaction Amount",
+       subtitle = "By location (from 2013 to 2016)") +
+  theme_minimal()
+
+# combine plots into a single page  
+ggarrange(industry_amount_plot, location_amount_plot,
+          ncol = 2, nrow = 1) 
+
+```
+
+It is not surprising that total sales of location 1 and 2 increased significantly compared to other locations. Meanwhile, in terms of industry, industry 2, 3 and 1 shows a rapid growing over the years while others’ progress are quite slow.
 
 ```{r fig.align="center", fig.cap="Seasonal Trend Over the Years", message=FALSE, warning=FALSE}
 ############################################################
@@ -380,51 +425,68 @@ ggplot(new_ts_df) +
  facet_wrap(vars(year), scales = "free", nrow = 1L)
 ```
 
+# Data preparation
+
+The goal will be to build a model that can predict future monthly_amounts.
+
+We will need to add a new variable called “time_number”, which is an integer describing the date order of rows in the dataset. For example: January, 2013 becomes 1, February 2013 becomes 2 etc. We will then do a rough 70:30 test:train data split, ensuring that the lower values seen across December are represented in our testing set.
+
+Aggregate the data, grouping by date, industry and location, and calculating the mean monthly_amount
 
 
-```{r fig.align="center", fig.cap="Transaction amount by Location vs. Industry", message=FALSE, warning=FALSE}
-#######################################################
-# Monthly transaction amount by country and location over time
-#######################################################
 
-# plot transaction info by industry
-industry_amount_plot <- location_amount_plot <- ggplot(industry) +
-  aes(x = date, y = transaction_amount, colour = industry) +
-  geom_line(size = 1) +
-  scale_color_hue(direction = 1) +
-  labs(x = "Year", 
-       y = "Total transaction amount (in millions)",
-       title = "Transaction Amount",
-       subtitle = "By industry (from 2013 to 2016)") +
-  theme_minimal()
+```{r}
+# We may want to do this again, so write a function
+aggregate_transactions <- function(df) {
+    
+  # Aggregate the data, grouping by date, industry and location, and calculating the mean monthly_amount
+  output = df %>%
+    group_by(date, industry, location) %>%
+    summarize(monthly_amount = mean(monthly_amount, na.rm = TRUE))
+  
+  # Let's also create a column for the month number and another one for year number
+  output = output %>%
+    mutate(month_number = format(as.Date(date), "%m")) %>%
+    mutate(year_number = format(as.Date(date), "%Y"))
+  
+  # Make sure the new columns are of the correct type
+  output$month_number = as.character(output$month_number)
+  output$year_number = as.character(output$year_number)
+  
+  transform(output, month_number = as.integer(month_number), year_number = as.integer(year_number))
+  
+  return(output)
 
+}
 
-# plot transaction info by location
-location_amount_plot <- ggplot(location) +
-  aes(x = date, y = transaction_amount, colour = location) +
-  geom_line(size = 1) +
-  scale_color_hue(direction = 1) +
-  labs(x = "Year", 
-       y = "Total transaction amount (in millions)",
-       title = "Transaction Amount",
-       subtitle = "By location (from 2013 to 2016)") +
-  theme_minimal()
+aggregated_transactions <- aggregate_transactions(df)
 
-# combine plots into a single page  
-ggarrange(industry_amount_plot, location_amount_plot,
-          ncol = 2, nrow = 1) 
-
+aggregated_transactions
 ```
 
-It is not surprising that total sales of location 1 and 2 increased significantly compared to other locations. Meanwhile, in terms of industry, industry 2, 3 and 1 shows a rapid growing over the years while others’ progress are quite slow.
-
-
-
-<!-- Here the dark squares represent a strong correlation (close to 1) while the lighter ones represent the weaker correlation(close to 0). That’s the reason, all the diagonals are dark blue, as a variable is fully correlated with itself. -->
-<!-- Now, the thing worth noticing here is that the correlation between newspaper and radio is 0.35. This indicates a fair relationship between newspaper and radio budgets. Hence, it can be inferred that → when the radio budget is increased for a product, there’s a tendency to spend more on newspapers as well. -->
-<!-- This is called collinearity and is referred to as a situation in which two or more input variables are linearly related. -->
-<!-- Hence, even though the Multiple Regression model shows no impact on sales by the newspaper, the Simple Regression model still does due to this multicollinearity and the absence of other input variables. -->
-
+```{r}
+aggregated_transactions %>%
+ filter(industry >= 1L & industry <= 1L) %>%
+ filter(location >= 1L & location <= 
+ 1L) %>%
+ ggplot() +
+  aes(x = date, y = monthly_amount, colour = year_number) +
+  geom_line(size = 0.7) +
+  geom_point(size=1) +
+  scale_color_brewer(palette = "Dark2", direction = 1) +
+  labs(
+    x = "year",
+    y = "Transaction amount",
+    title = "Mean Monthly Transaction Amount",
+    subtitle = "Industry 1 & Location 1",
+    color = "Year"
+  ) +
+  ggthemes::theme_par() +
+  theme(
+    plot.title = element_text(size = 12L),
+    plot.subtitle = element_text(hjust = 0.5)
+  )
+```
 
 # Modeling
 ```{r regression models, eval=FALSE, include=FALSE}
@@ -446,12 +508,11 @@ vif(model)
 
 <!-- Checking Linear Regression Assumptions -->
 
-Linear regression makes several assumptions about the data, such as:
-
-Linearity of the data
-Normality of residuals
-Homogeneity of residuals variance - whether variation of observations around the regression line is constant
-Independence of residuals error terms
+Linear regression makes several assumptions about the data, such as:\
+* Linearity of the data\
+* Normality of residuals\
+* Homogeneity of residuals variance - whether variation of observations around the regression line is constant\
+* Independence of residuals error terms\
 All these assumptions can be checked by producing some diagnostic plots visualizing the residual errors. We would like to analyze model3 as it is the best model according to ANOVA.
 
 ```{r}
@@ -462,7 +523,7 @@ All these assumptions can be checked by producing some diagnostic plots visualiz
 * **For linearity assumption:** look at Residuals vs.Fitted plot. A horizontal line, without distinct patterns is an indication for a linear relationship is a good sign in this graph. For model3 : It is can be clearly seen on our plot!
 * **For normality assumption:** look at Q-Q plot. If residuals are normally distributed, the residuals points are supposed to follow the straight dashed line. For model3 : Yay! Looks like this plot shows good stuff!
 * **For homoscedasticity assumption:** look at Scale-Location & Residuals vs. Leverage plots. In this case horizontal line with equally spread points is a good indication of homoscedasticity. For model3: Once again, no problems with our graph!
-* **To identify outliers, which extreme values might influence the regression results can be identified with the Residuals vs Leverage plot. Here we can spot only one of them.
+* To identify outliers, which extreme values might influence the regression results can be identified with the Residuals vs Leverage plot. Here we can spot only one of them.
 
 # Deployment
 

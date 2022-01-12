@@ -1,5 +1,5 @@
 ---
-title: "Predictive Modelling on Financial Transactions"
+title: "MLR on Time-Series Financial Dataset"
 author: "Leah Nguyen"
 date: "`r Sys.Date()`"
 output:
@@ -22,36 +22,42 @@ This article aims to analyse and provide insights from the monthly transaction d
 
 To well capture this information, the CRISP-DM management model is adopted to provide a structured planning approach to a data mining project with 6 high-level phases. In particular, these phases assist companies in comprehending the data mining process and serve as a road map for planning and executing a data mining project (Medeiros, 2021). This study explores each of the six phases, and the tasks associated with each in the following orders:
 
-* Business understanding
-* Data understanding
-* Data preparation
-* Modeling
-* Evaluation
-* Deployment
+* [Business understanding](#bu)\
+* [Data understanding](#du)\
+* [Data preparation](#dp)\
+* [Modeling](#m)\
+* [Evaluation](#e)\
+* [Deployment](#d)
 
 ```{r residuals, echo=FALSE, out.width="40%",fig.cap="Cross-Industry Standard Process for Data Mining (CRISP-DM project, 2000)",fig.align="center"}
 knitr::include_graphics("img/CRISP-DM.png")
 ```
 
-# Business understanding
+# Business Understanding {#bu}
 
 **Business Understanding** is the first taken step in the CRISP-DM methodology. In this stage, the main task is to understand the purpose of the analysis and to provide a clear and crisp definition of the problem in respect of understanding the *Business objectives* and *Data mining objectives*.
 
 
 In our case study, the posed question related Business object paraphrased from the sale manager's request is: “what is driving the trends and increase total monthly revenue?”. On the other hand, we wish to achieve the data mining object by applying data visualization tools to identify any underlying patterns from the dataset.
 
-# Data Understanding
+# Data Understanding {#du}
 
-Following that, the **Data Understanding** or Exploratory Data Analysis (EDA) phase is where we focus on understanding the data collected to support the Business Understanding and resolve the business challenge (Wijaya, 2021). Visualization techniques play an essential role in this. Thus, The data was imported into the software package R to construct visualizations represented the findings found during the analysis.
+Following that, the **Data Understanding** phase is where we focus on understanding the data collected to support the Business Understanding and resolve the business challenge (Wijaya, 2021). Data preprocessing and data visualization techniques play an essential role in this. Thus, I'm going to divide the section into 2 main components:
 
-Additionally, a two-stage approach is adopted to specify the content in this section, with [Stage 1](#edastage1) devoted to basic exploration and [Stage 2](#edastage2) devoted to univariate, bivariate, and multivariate analysis.
+* [**Exploratory Data Analysis (Part 1) - The Dataset**](#eda1)\
+  * [**Stage 1:** Basic Exploration](#be)\
+  * [**Stage 2:** Univariate, Bivariate & Multivariate Analysis](#ubma)\
+* [**Exploratory Data Analysis (Part 2) - The Business Insights**](#eda2)\
 
+The data was imported into the software package R to construct visualizations represented the findings found during the analysis.
 
-## Stage 1: Basic Exploration {#edastage1}
+## Exploratory Data Analysis (Part 1) - The Dataset {#eda1}
+
+### Stage 1: Basic Exploration {#be}
 
 First, I will run the libraries which will be necessary for reading & manipulating our data and then conducting the graphs.
 
-```{r, echo=FALSE, message = FALSE, warning = FALSE}
+```{r, message = FALSE, warning = FALSE}
 library(here)         # assess the file path
 library(DataExplorer) # EDA visualizations
 library(tidyverse)    # data wrangling
@@ -68,7 +74,7 @@ library(reshape2)     # transpose table
 library(fmsb)         # create radar chart
 ```
 
-Once libraries are loaded, we explore the data with the goal of understanding its dimensions, data types, and distribution of values. In this assignment, a time series data set of financial transactions was used as the major source of data. The attributes information is specifically presented in Appendix []. As apparent from the table below, the data records 470,000+ observations across 5 columns, which are equivalent to 94,000+ bank transactions. The 5 features contained in this data set including `date`,	`customer_id`, `industry`,	`location`,	`monthly_amount`, clearly indicates the total transactions amounts for customers each month spanning a 3-year period over a range of industries and locations. Therefore, no further justification needs to be made on column names. 
+Once libraries are loaded, we explore the data with the goal of understanding its dimensions, data types, and distribution of values. In this assignment, a time series data set of financial transactions was used as the major source of data. The attributes information is specifically presented in Appendix []. 
 
 ```{r message=FALSE, center=TRUE}
 # read the dataset and covert it into a df object
@@ -81,21 +87,22 @@ df_overview %>%
   kable_styling(bootstrap_options = "striped",    # apply bootstrap theme to the table
                 full_width = F) 
 ```
-It is also worthwhile to note that features are made up in multiple formats that include both numerical and time-series data. However, the output shows that the `date` column has the wrong data type which will need to be converted to date format later. 
+
+As apparent from the table, the data records 470,000+ observations across 5 columns, which are equivalent to 94,000+ bank transactions. The 5 features contained in this data set including `date`,	`customer_id`, `industry`,	`location`,	`monthly_amount`, clearly indicates the total transactions amounts for customers each month spanning a 3-year period over a range of industries and locations. Therefore, no further justification needs to be made on column names. 
 
 ```{r}
 sapply(df, class) # inspect columns data type
 ```
 
+It is also worthwhile to note that features are made up in multiple formats that include both numerical and time-series data. However, the output shows that the `date` column has the wrong data type which will need to be converted to date format later. 
+
 Additionally, I investigate further by looking at the response field. Recall from the business question, we would expect to use the `monthly_amount` column as the target field since our goal is to get the predicted value of the monthly transaction value next month. Since the observation in this column are continuous, thus, I can conclude that our problem is defined as the supervised regression problem. Having known this information is extremely essential to select the right Machine Learning model in the later stage of this report. 
 
 ```{r fig.align="center", fig.cap="Missing values plot"}
 # Plot the Quick summary information
-plot_intro(df)
+plot_missing(df)
 ```
-The illustration shows that there is no missing values on any fields of data. Nevertheless, some data sets define missing observations in categorical/character columns as a new category such as `"NA"`, `"NULL"`, etc. Thus, there are chances that we possibly miss these observations, which can lay a tremendous negative impact on the real data distribution. Consequently, a further address on the missing values of our categorical columns need to be made in order to confirm this observation.
-
-The code output below interprets that there is no new missing value category exists in categorical columns. Thus, we can confirm our hypothesis that there is no missing values from both numerical and categorical columns in this data set.Furthermore, it also indicate that there are 1 row that contain odd value in `monthly_amount` column that will need to be resolved.
+From the plot, it shows that there are no missing values on any fields of data. Nevertheless, some data sets define missing observations in categorical/character columns as a new category such as `"NA"`, `"NULL"`, etc. Thus, there are chances that we possibly miss these observations, which can lay a tremendous negative impact on the real data distribution. Consequently, a further address on the missing values of our categorical columns need to be made in order to confirm this observation.
 
 ```{r}
 # convert character values of character columns to upper case for better checking
@@ -116,14 +123,17 @@ sprintf(paste0("Is there any missing value observation categories in customer_id
 sprintf(paste0("How many rows contained 0 value in monthly transaction amount?: ", 
                sum(df$monthly_amount==0)))
 ```
-##  Stage 2: Univariate, Bivariate & Multivariate Analysis {#edastage2}
+The code output below interprets that there is no new missing value category exists in categorical columns. Thus, we can confirm our hypothesis that there is no missing values from both numerical and categorical columns in this data set.Furthermore, it also indicate that there are 1 row that contain odd value in `monthly_amount` column that will need to be resolved.
 
-### Univariate: Check the distribution of each field
+### Stage 2: Univariate, Bivariate & Multivariate Analysis {#ubma}
 
-In research from Sharma (2020), the distributions of the independent variable and the target variable are assumed to be similar in linear models. Therefore, understanding the skewness of data helps us in creating better linear models. 
+To evaluate the impact of each feature in the phenomenon, a univariate, bivariate, and multivariate analysis is performed with all features.
 
-#### Numerical 
-Next, let’s visualise the dataset to see which group of industry and location statistically contribute the most to the significant difference.
+#### Univariate: Check the distribution of each field
+
+The univariate analysis is the study of the data distribution. In research from Sharma (2020), the distributions of the independent variable and the target variable are assumed to be a crucial component in building linear models. Therefore, understanding the skewness of data helps us in creating better models. 
+
+Firstly, I will plot a histogram to check which group of industry and location statistically contribute the most to the significant difference.
 
 ```{r fig.align="center", fig.cap="Data distribution", message=FALSE, warning=FALSE}
 # combine 2 plots into 1 plot
@@ -145,11 +155,11 @@ hist(df$location, # create histogram
      ylim=c(0,50000), 
      las=0)
 ```
+As can be seen from the plot, the location 1 and 2 made the top contributions for the `industry` column while the industry 2 and industry 1 occupied for the highest frequency distribution for the `location`. These results imply that the model can perform better at predicting the total transaction amount for next month with location 1, 2 and/or industry 1, 2.
 
-```{r message=FALSE, warning=FALSE}
+```{r fig.align="center", fig.cap="Boxplot to check for outliers when plotting Monthly Amount against Location & Industry", message=FALSE, warning=FALSE}
 # combine 2 plots into 1 plot
 par(mfrow=c(1,2)) 
-
 # plot boxplot to check for outliers
 boxplot(monthly_amount~industry, 
         data=df, 
@@ -170,20 +180,16 @@ boxplot(monthly_amount~location,
   theme_classic()
 ```
 
-As can be seen from the plot, the location 1 and 2 made the top contributions for the `Industry` column while the industry 2 and industry 1 occupied for the highest frequency distribution for the `Location` column. These results imply that the model can perform better at predicting the total transaction amount for next month with location 1, 2 and/or industry 1, 2.
+Next, boxplot of sale transactions by the industry and location present their high variance with considerable amount of outliers. The median amount of spending per customer for industry 6 and 9 are highest, over 500,000 while the lowest ones belong to industry 1 and 10, less than 200,000. In terms of locations, most of locations had its median amount of spending less than 500,000.
 
-Having known this information is essentially important to gain better understandings about the transaction data set and provide great insights for transforming data in the later stage.
+#### Bivariate Analysis: Relationship between each column and target field & Collinearity
 
-However, before doing that, the previous issues indicated in this dataset need to be addressed:
+After having known the distribution of our `transaction` dataset, it is essential to also check for correlation and collinearity assumptions between fields in the Bivariate Analysis. Some basic transformations regarding data types are performed beforehand for the sake of plotting visualizations.
 
-1. There is a wrong data types in `Date` column. Convert it into the right format\
-2. \
-3. The number in transaction
-
-```{r}
-############################
+```{r fig.align="center", fig.cap="Correlation Plot", message=FALSE, warning=FALSE}
+########################################################
 # DATA TRANSFORMATION
-############################
+########################################################
 # convert date column into the date format
 df$date <- as.Date(df$date,"%d/%m/%Y")
 
@@ -195,12 +201,22 @@ df$location <- as.character(df$location)
 
 # convert industry column into character format
 df$industry <- as.character(df$industry)
+
+# filter out value with 0 transaction amount
+df<-filter(df, monthly_amount!=0)
+
+########################################################
+# DATA VISUAIZATION: CORRELATION PLOT
+########################################################
+plot_correlation(df)
 ```
 
-```{r fig.align="center", message=FALSE, warning=FALSE}
-#######################################################
-# DATA PREPARATION
-#######################################################
+Having known this information is essentially important to gain better understandings about the transaction data set and provide great insights for transforming data in the later stage.
+
+
+## Exploratory Data Analysis (Part 2) - The Business Insights {#eda2}
+
+```{r message=FALSE, warning=FALSE}
 ############################
 # DATA TABLE TRANSFORMATION
 ############################
@@ -302,41 +318,7 @@ ggarrange(monthly_amount_plot,
 
 Number of transactions and total amount of sales rose sharply throughout the years, from 2013 to 2017. The seasonal trend can be found on total amount of sales while the up trend for number of transactions is quite smooth. 
 
-```{r fig.align="center", fig.cap="Transaction amount by Location vs. Industry", message=FALSE, warning=FALSE}
-#######################################################
-# Monthly transaction amount by country and location over time
-#######################################################
-
-# plot transaction info by industry
-industry_amount_plot <- location_amount_plot <- ggplot(industry) +
-  aes(x = date, y = transaction_amount, colour = industry) +
-  geom_line(size = 1) +
-  scale_color_hue(direction = 1) +
-  labs(x = "Year", 
-       y = "Total transaction amount (in millions)",
-       title = "Transaction Amount",
-       subtitle = "By industry (from 2013 to 2016)") +
-  theme_minimal()
-
-
-# plot transaction info by location
-location_amount_plot <- ggplot(location) +
-  aes(x = date, y = transaction_amount, colour = location) +
-  geom_line(size = 1) +
-  scale_color_hue(direction = 1) +
-  labs(x = "Year", 
-       y = "Total transaction amount (in millions)",
-       title = "Transaction Amount",
-       subtitle = "By location (from 2013 to 2016)") +
-  theme_minimal()
-
-# combine plots into a single page  
-ggarrange(industry_amount_plot, location_amount_plot,
-          ncol = 2, nrow = 1) 
-
-```
-
-It is not surprising that total sales of location 1 and 2 increased significantly compared to other locations. Meanwhile, in terms of industry, industry 2, 3 and 1 shows a rapid growing over the years while others’ progress are quite slow.
+A useful variation on the seasonal plot uses polar coordinates as the following illustration.
 
 ```{r fig.align="center", fig.cap="Seasonal Trend Over the Years", message=FALSE, warning=FALSE}
 ############################################################
@@ -425,24 +407,62 @@ ggplot(new_ts_df) +
  facet_wrap(vars(year), scales = "free", nrow = 1L)
 ```
 
-# Data preparation
+A closer examination reveals that the total volume of transaction amount increases significantly from January to October and subsequently decreases from November towards the end of the year. This pattern can be ascribed to the fact that people trade less during the holidays, particularly during the month surrounding big holidays like Christmas and New Year. 
 
-The goal will be to build a model that can predict future monthly_amounts.
+This, however, might be based on a variety of different factors rather than on individual conclusions about each region or industry. As a result, additional information is required to substantiate these hypotheses.
 
-We will need to add a new variable called “time_number”, which is an integer describing the date order of rows in the dataset. For example: January, 2013 becomes 1, February 2013 becomes 2 etc. We will then do a rough 70:30 test:train data split, ensuring that the lower values seen across December are represented in our testing set.
+```{r fig.align="center", fig.cap="Transaction amount by Location vs. Industry", message=FALSE, warning=FALSE}
+#######################################################
+# DATA VISUALIZATION: Monthly transaction amount by country and location over time
+#######################################################
 
-Aggregate the data, grouping by date, industry and location, and calculating the mean monthly_amount
+# plot transaction info by industry
+industry_amount_plot <- location_amount_plot <- ggplot(industry) +
+  aes(x = date, y = transaction_amount, colour = industry) +
+  geom_line(size = 1) +
+  scale_color_hue(direction = 1) +
+  labs(x = "Year", 
+       y = "Total transaction amount (in millions)",
+       title = "Transaction Amount",
+       subtitle = "By industry (from 2013 to 2016)") +
+  theme_minimal()
 
 
+# plot transaction info by location
+location_amount_plot <- ggplot(location) +
+  aes(x = date, y = transaction_amount, colour = location) +
+  geom_line(size = 1) +
+  scale_color_hue(direction = 1) +
+  labs(x = "Year", 
+       y = "Total transaction amount (in millions)",
+       title = "Transaction Amount",
+       subtitle = "By location (from 2013 to 2016)") +
+  theme_minimal()
 
-```{r}
+# combine plots into a single page  
+ggarrange(industry_amount_plot, location_amount_plot,
+          ncol = 2, nrow = 1) 
+
+```
+
+When looking at the monthly amount by `location` and `industry`, it is not surprising that total sales of location 1 and 2 increased significantly compared to other locations. Meanwhile, in terms of industry, industry 2, 3 and 1 shows a rapid growing over the years while others’ progress are quite slow.
+
+# Data Preparation {#dp}
+
+## Feature Engineering {#fe}
+
+When the data has been fully understood, data scientists generally need to go back to data collection and data cleaning phases of the data science pipeline so as to transform the data set as per the expected business outcomes.To expand the information that is already at hand and better represent the information we have, the best practice is to perform **Data Preparation** or *Feature Engineering*, meaning the creation of new features from the ones already existing.
+
+In this case study, the data will need to be modified as we will be applying a linear regression model later on.
+
+```{r message=FALSE, warning=FALSE}
 # We may want to do this again, so write a function
 aggregate_transactions <- function(df) {
     
   # Aggregate the data, grouping by date, industry and location, and calculating the mean monthly_amount
   output = df %>%
     group_by(date, industry, location) %>%
-    summarize(monthly_amount = mean(monthly_amount, na.rm = TRUE))
+    summarize(mean_amount = mean(monthly_amount, na.rm = TRUE))
   
   # Let's also create a column for the month number and another one for year number
   output = output %>%
@@ -464,13 +484,20 @@ aggregated_transactions <- aggregate_transactions(df)
 aggregated_transactions
 ```
 
-```{r}
+An aggregated data set using the fields `date`, `industry` and `location`, with a mean of monthly amount is created. There are total 3,886 rows with each row presents a mean of monthly amount ranging from 2013 to 2016.
+
+Now that we have a new adjusted dataset, I will use it to create a line plot of the variable `monthly_amount` for `industry = 1` and `location = 1` with the purpose of gaining more insights from targeted areas.
+
+```{r message=FALSE, warning=FALSE}
+#######################################################
+# DATA VISUALIZATION: Mean Monthly Transaction Amount (Location 1 & Industry 1)
+#######################################################
 aggregated_transactions %>%
  filter(industry >= 1L & industry <= 1L) %>%
  filter(location >= 1L & location <= 
  1L) %>%
  ggplot() +
-  aes(x = date, y = monthly_amount, colour = year_number) +
+  aes(x = date, y = mean_amount, colour = year_number) +
   geom_line(size = 0.7) +
   geom_point(size=1) +
   scale_color_brewer(palette = "Dark2", direction = 1) +
@@ -488,23 +515,178 @@ aggregated_transactions %>%
   )
 ```
 
-# Modeling
-```{r regression models, eval=FALSE, include=FALSE}
-#fit the regression model
-model <- lm(monthly_amount ~ ., data = df)
+It is clear from the graph that there is the seasonality trend observed from the mean transaction amount of Industry 1 & Location 1. More specifically, a down trend at the end of year followed by the up trend at the beginning of year is presented with the months of December and January are low months for this industry and location, and the sales more bounce back in March to June. This pattern of fluctuation is repeated during the year and in the time span of 3 years from 2013 to 2017. In average, the monthly mean amount of sales is increasing slowly over time. 
 
-#view the output of the regression model
-summary(model)
+However, it is worth mentioning that the year-end trend in 2016 was upward, which was the inverse of previous years. As a result, we will need to take a closer look at this occurrence by examining the amount of money moved by month for each year using the graphic below.
+
+```{r}
+#######################################################
+# DATA VISUALIZATION: Mean Transaction Amount (Annual Month View - Location 1 & Industry 1)
+#######################################################
+aggregated_transactions %>%
+ filter(industry %in% "1") %>%
+ ggplot() +
+ aes(x = month_number, fill = year_number, weight = mean_amount) +
+ geom_bar() +
+ scale_fill_manual(values = c(`2013` = "#EBEBAE", `2014` = "#BBE395", `2015` = "#379E54", `2016` = "#004529"
+ )) +
+ labs(x = "Month", y = "Total transaction amount", title = "Transaction Amount by Month", subtitle = "Location 1 & Industry 1", 
+ fill = "year") +
+ theme_classic() +
+ theme(legend.position = "bottom", 
+       plot.title = element_text(size = 15L),
+       axis.title.x=element_blank(),
+       axis.text.x=element_blank(),
+       axis.ticks.x=element_blank()) +
+ facet_wrap(vars(year_number), nrow = 1L) +
+  coord_flip()
 ```
 
-```{r eval=FALSE, include=FALSE}
-# calculate the VIF for each predictor variable in the model
+As can be seen, the anomalous increase towards the end of 2016 was previously noticed as a result of a lack of transaction data in December 2016. As a result, we discovered another insight based on fact observing from the trend chart above.
 
-vif(model)
+## Train-Test Split 
 
+Since the aim of this project is to build a model that can predict `monthly_amount`for the future, we first split the data into train and the test set. The train set includes three years of data from 2013 to 2016 while test set includes one last year of data, 2016.
+
+```{r}
+################################################################################
+# TRAIN-TEST SPLIT
+################################################################################
+# create helper function with the creation of train-test split
+create_train_test <- function(df){
+  # Test set
+  # Use data for the year 2016 to test accuracy
+  test_df <- df[df$date >	"2016-01-01",]   
+  
+  # Training set
+  # Use data for the year 2016 for forecasting
+  train_df <- df[(df$date < "2016-01-01"),]
+  return (list(train_df, test_df))
+}
+
+# Create train and test
+# use the adjusted data set with new features
+split_list <- create_train_test(aggregated_transactions) 
+
+# train set
+train_set <- split_list[[1]] 
+
+# test set
+test_set <- split_list[[2]]                   
 ```
 
-# Evaluation
+Additionally, as we have 2 requirements in this assignment which is:
+
+1. **Basic Model Fitting**: Developing a linear regression model with monthly_amount as the target for `industry = 1` and `location = 1`.
+2. **Advanced Model Fitting**: Developing a linear regression model with monthly_amount as the target for all industries and locations.
+
+I will generate an additional data set that filtered only Industry 1 and Location 1 records by the following code. The train and split test for the Advanced Model Fitting section can be kept the same as there are no further adjustments needed.
+
+```{r}
+# create new df filter by only Location 1 & Industry 1
+agg_1_1 <- aggregated_transactions %>% 
+  filter( industry == 1, location == 1)
+
+# # Create train and test
+# use the adjusted data set with new features
+split_list_1_1 <- create_train_test(agg_1_1) 
+
+# train set
+train_set_1_1 <- split_list_1_1[[1]] 
+
+# test set
+test_set_1_1 <- split_list_1_1[[2]]      
+```
+
+
+# Modeling {#m}
+
+## Basic Model Fitting
+
+In this section, I will focus on developing a MLR filtered by Location 1 & Industry 1 only. 
+
+
+### Model Development
+
+In this section, numerous Multiple Linear Regression (MLR) models will be developed and assessed with various combinations of predictor variables. As for the approach, I will adopt stepwise model selection method as backwards elimination. Here, I start with a full model that is a model with all possible co-variants or predictors included, and then I will drop variables one at a time until a parsimonious model is reached.
+
+#### Model 1: Full Model
+
+Noted that even though we start the model with all variables, I will exclude the `location`, `industry` and `year` as we only filter by Location 1, Industry 1 and the year of 2013-2015, which can overfit our MLR model.
+
+```{r}
+################################################################################
+# M1: 2 VARIABLE - date + month_number
+################################################################################
+M1_1 <-lm(mean_amount~date+month_number, data =train_set_1_1)
+summary(M1_1)
+```
+The month number variable is introduced to accommodate for the seasonality of the sales amount. As summarized in the linear model with the formula `formula = mean_amount ~ date + month_number`, this model performs quite impressively with the Adjusted R-Square equivalent to 0.7457. In other words, this indicates that approximately 74,57% observations in the training set are explained by the model.
+
+#### Model 2: Fit the model with `month_number` variable
+
+```{r}
+################################################################################
+# M2: 1 VARIABLE - month_number
+################################################################################
+M1_2 <-lm(mean_amount~month_number, data =train_set_1_1)
+summary(M1_2)
+```
+Based on the Multiple R-squared value, our Model 2 can only account for approximately 54% of the variance. This indicates that fitting the `month_number` alone provide a moderate predictor of `monthly_amount` which specifically perform worse than the first model. We can also get confirmation by looking at the p-value of 0.02583 which tells us that the month predictors unlikely to be a good fit to the data.
+
+#### Model 3: Fit the model with `date` variable
+
+
+```{r}
+################################################################################
+# M3: 1 VARIABLE - date
+################################################################################
+M1_3 <-lm(mean_amount~date, data =train_set_1_1)
+summary(M1_3)
+```
+With the third one where we fit only the `date` variable to the model, it even get a worse performance with only 36% of the variability in the average monthly sales amount is explained by it, leaving a whopping of unexplained 64% variance.
+
+#### Model Selection
+
+In conclusion, Model 1 provide the best fit so far comparing to the other 2 combinations. Thus, I will use this model for making a prediction for `monthly_amount` in December 2016.
+
+### Model Prediction
+
+After having chosen the Model 1 as the final model, my next step is to create a new data frame specifying only 2016 records. I then making the prediction for the transaction amount in December, 2016 with the function `predict()` as follows.
+
+```{r}
+# Create a prediction for monthly_amount in December 2016. Comment on how reasonable this prediction is. For example, if you were to plot it on the same plot as 2aii, would it sit somewhere reasonable?
+
+# Create a data frame for December 2016
+# dec_2016 = data.frame(date = "2016-01-12",
+#                       industry=1,
+#                       location=1,
+#                       mean_amount=0,
+#                       month_number=12,
+#                       Year=2016)
+# 
+# dec_2016$date <- as.Date(dec_2016$date,
+#                              format = "%y/%d/%m")
+# dec_2016$industry <- as.numeric(dec_2016$industry)
+# dec_2016$location <- as.numeric(dec_2016$location)
+# dec_2016$month_number <- as.numeric(dec_2016$month_number)
+# M1_1$month_number <- as.numeric(M1_1$month_number)
+# 
+# # Use predict function + model we just built and apply to dec_2016 dataframe
+# dec_2016$mean_amount <- predict(M1_1,dec_2016)
+# 
+# # To add this to the existing dataset (agg_1_1) we use rbind
+# agg_1_1 <- as.data.frame(agg_1_1)
+# agg_data_with_dec_pred <- rbind(agg_1_1, dec_2016)
+```
+
+## Advanced Model Fitting
+
+# Evaluation {#e}
+
+For projects that build predictive models, this would be the time to evaluate model performance on the hold-out test sets. For projects requiring statistical analysis, such as ours, statistical significance of the conclusions should be assessed. Additionally, we evaluate whether the model/analysis we have produced is correct and we haven’t overlooked anything 
+
+Here we will not analyze every step, just have a look at the most interesting model with a bunch of predictors to practice once again.
 
 <!-- Checking Linear Regression Assumptions -->
 
@@ -515,18 +697,17 @@ Linear regression makes several assumptions about the data, such as:\
 * Independence of residuals error terms\
 All these assumptions can be checked by producing some diagnostic plots visualizing the residual errors. We would like to analyze model3 as it is the best model according to ANOVA.
 
-```{r}
-# par(mfrow = c(2, 2))
-# plot(model3)
-```
-
-* **For linearity assumption:** look at Residuals vs.Fitted plot. A horizontal line, without distinct patterns is an indication for a linear relationship is a good sign in this graph. For model3 : It is can be clearly seen on our plot!
-* **For normality assumption:** look at Q-Q plot. If residuals are normally distributed, the residuals points are supposed to follow the straight dashed line. For model3 : Yay! Looks like this plot shows good stuff!
-* **For homoscedasticity assumption:** look at Scale-Location & Residuals vs. Leverage plots. In this case horizontal line with equally spread points is a good indication of homoscedasticity. For model3: Once again, no problems with our graph!
+* **For linearity assumption:** look at Residuals vs.Fitted plot. A horizontal line, without distinct patterns is an indication for a linear relationship is a good sign in this graph. For model3 : It is can be clearly seen on our plot!\
+* **For normality assumption:** look at Q-Q plot. If residuals are normally distributed, the residuals points are supposed to follow the straight dashed line. For model3 : Yay! Looks like this plot shows good stuff!\
+* **For homoscedasticity assumption:** look at Scale-Location & Residuals vs. Leverage plots. In this case horizontal line with equally spread points is a good indication of homoscedasticity. For model3: Once again, no problems with our graph!\
 * To identify outliers, which extreme values might influence the regression results can be identified with the Residuals vs Leverage plot. Here we can spot only one of them.
 
-# Deployment
 
+```{r}
+# plot the model
+par(mfrow=c(2,2)) 
+plot(M1_3)
+```
 
 # References
 

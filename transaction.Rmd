@@ -72,7 +72,8 @@ library(ggpubr)       # comebine plots into single page
 theme_set(theme_pubr())
 library(reshape2)     # transpose table
 library(fmsb)         # create radar chart
-library(data.table)
+library(modelr)       #  computing regression model performance metrics
+
 ```
 
 Once libraries are loaded, we explore the data with the goal of understanding its dimensions, data types, and distribution of values. In this assignment, a time series data set of financial transactions was used as the major source of data. The attributes information is specifically presented in Appendix []. 
@@ -498,7 +499,7 @@ Now that we have a new adjusted data set, I'm going to split the data into train
 create_train_test <- function(df){
   # Test set
   # Use data for the year 2016 to test accuracy
-  test_df <- df[df$date >	"2016-01-01",]   
+  test_df <- df[df$date >=	"2016-01-01",]   
   
   # Training set
   # Use data for the year 2016 for forecasting
@@ -672,129 +673,160 @@ With the third one where we fit only the `date` variable to the model, it even g
 
 In conclusion, Model 1 provide the best fit so far comparing to the other 2 combinations. Thus, I will use this model for making a prediction for `monthly_amount` in December 2016.
 
-```{r}
-# autoplot(uschange[,'Consumption'], series="Data") +
-#   autolayer(fitted(fit.consMR), series="Fitted") +
-#   xlab("Year") + ylab("") +
-#   ggtitle("Percent change in US consumption expenditure") +
-#   guides(colour=guide_legend(title=" "))
-```
-
 
 ### Model Prediction
 
 After having chosen the Model 1 as the final model, my next step is to create a new data frame specifying only 2016 records. I then making the prediction for the transaction amount in December, 2016 with the function `predict()` as follows.
 
-```{r}
-# Create a prediction for monthly_amount in December 2016. Comment on how reasonable this prediction is. For example, if you were to plot it on the same plot as 2aii, would it sit somewhere reasonable?
+```{r message=FALSE, warning=FALSE}
+# assign new variable for column names
+x <- c("date", "industry", "location", "mean_amount","month_number","year_number","type")
 
-# Create a data frame for December 2016
-dec_2016 <- data.frame(date = as.Date("01/12/2016","%d/%m/%Y"),
-                      industry="1",
-                      location="1",
-                      mean_amount=0,
-                      month_number="12",
-                      year_number="2016")
+# create new df for fitted df
+fit_df <- data.frame(train_set_1_1[-7]) %>% mutate(type="Fitted")
+colnames(fit_df) <- x
 
-# # Use predict function + model we just built and apply to dec_2016 dataframe
-# train_set_1_1$mean_amount <- predict(M1_1,dec, interval="prediction")
-# test_set_1_1$mean_amount <- predict(M1_1,test_set_1_1, interval="prediction")
-# 
-# # To add this to the existing dataset (agg_1_1) we use rbind
-# agg_data_with_dec_pred_1 <- rbind(train_set_1_1, test_set_1_1)
-# rmarkdown::paged_table(agg_data_with_dec_pred_1)
+# create new df for prediction df
+pred_df <- data.frame(test_set_1_1[-7]) %>% mutate(type="Predicted")
+colnames(pred_df) <- x
+
+dec2016<-data.frame(date = "2016/12/01",
+                    industry="1",
+                    location="1",
+                    mean_amount = 0,
+                    month_number="12",
+                    year_number="2016",
+                    type="Predicted"
+                    )
+
+dec2016$date <- as.Date(dec2016$date,format = "%Y/%m/%d")
 
 ## Use predict function + model we just built and apply to dec_2016 dataframe
-dec_2016$mean_amount<- predict(M1_1, dec_2016, interval="prediction")
-
-# To add this to the existing dataset (agg_1_1) we use rbind
-agg_1_1 <- as.data.frame(agg_1_1)
-agg_data_with_dec_pred <- rbind(agg_1_1, dec_2016)
-
-
-
-# actual_1 <- test_set_1_1[,1]
-
-# pred_ts_1 <- ts(pred_1, [,2], start = year, 
-#            month, date, frequency = in my case it was 31)
-# 
-# dt.mlr=cbind(actual, pred)
-# autoplot(dt.mlr)
+fit_df$mean_amount <- predict(M1_1, train_set_1_1)
+pred_df$mean_amount <- predict(M1_1, test_set_1_1)
+pred <- predict(M1_1, dec2016)
+dec2016$mean_amount <- pred
+pred_df <- sqldf(
+  "SELECT * FROM pred_df 
+  UNION ALL
+  SELECT * FROM dec2016"
+)
 ```
+
+
 Next, I will examine whether our December 2016 forecast reasonable by plotting a line plot with the predicted data.
 
 ```{r}
 
-#adjust dateformat
-agg_1_1$date <- as.Date(agg_1_1$date,"%d/%m/%Y")
-agg_data_with_dec_pred_1$date <- as.Date(agg_data_with_dec_pred_1$date,"%d/%m/%Y")
-test_set_1_1$date <- as.Date(test_set_1_1$date,"%d/%m/%Y")
-
-# add new column to specify the value type
 agg_1_1$type <- "Real"
-agg_data_with_dec_pred_1$type <- "Predicted"
-test_set_1_1$type <- "Fitted"
 
-# create data frame of actual and predicted values
-predicted_real_1 <- sqldf(
-  "SELECT * FROM test_set_1_1
-  UNION ALL
-  SELECT * FROM agg_data_with_dec_pred_1
-  UNION ALL
-  SELECT * FROM agg_1_1
-  ORDER BY type;
-  "
-)
+# covert into df format
+fit_df <- as.data.frame(fit_df)
+pred_df <- as.data.frame(pred_df)
 
-# plot line plot
-ggplot(predicted_real_1) +
+# To add this to the existing dataset (agg_1_1) we use rbind
+newData <- rbind(fit_df, pred_df,agg_1_1)
+
+# Plot fit from MLR
+newData %>%
+ filter(!(year_number %in% "2016")) %>%
+ filter(!(type %in% "Predicted")) %>%
+ ggplot() +
   aes(x = date, y = mean_amount, colour = type) +
-  geom_line(size = 0.75) +
-  scale_color_brewer(palette = "Dark2", direction = 1) +
+  geom_line(size = 0.5) +
+  scale_color_hue(direction = 1) +
   labs(
     x = "Year",
-    y = "Mean transaction amount",
-    title = "MLR Fitted",
-    subtitle = "December 2016 transation",
-    color = "Value type"
+    y = "Mean Transaction Amount",
+    title = "Fit from MLR"
   ) +
-  theme_bw() +
-  theme(
-    legend.position = "bottom",
-    plot.title = element_text(size = 15L)
-  )
+  theme_light()
 
-ggplot(data = data.table(Fitted_values = M1_1$fitted.values,
-                         Residuals = M1_1$residuals),
-       aes(Fitted_values, Residuals)) +
-  geom_point(size = 1.7) +
-  geom_smooth() +
-  geom_hline(yintercept = 0, color = "red", size = 1) +
-  labs(title = "Fitted values vs Residuals")
+# Plot prediction from MLR
+ggplot(newData) +
+ aes(x = date, y = mean_amount, colour = type) +
+ geom_line(size = 0.7) +
+ scale_color_hue(direction = 1) +
+ labs(x = "Year", y = "Mean transaction amount", title = "December 2016 Prediction") +
+ theme_light() +
+ theme(plot.title = element_text(face = "bold"))
+
+
 ```
 
 ## Advanced Model Fitting
 
-# Evaluation {#e}
+# Evaluation 
 
-For projects that build predictive models, this would be the time to evaluate model performance on the hold-out test sets. For projects requiring statistical analysis, such as ours, statistical significance of the conclusions should be assessed. Additionally, we evaluate whether the model/analysis we have produced is correct and we haven’t overlooked anything 
+## Evaluation Metrics {#e}
 
-Here we will not analyze every step, just have a look at the most interesting model with a bunch of predictors to practice once again.
+We can quantify the residuals by calculating a number of commonly used evaluation metrics. We’ll focus on the following three:
 
-# Conclusion
+* **Mean Square Error (MSE):** The mean of the squared differences between predicted and actual values. This yields a relative metric in which the smaller the value, the better the fit of the model
 
-Data analysis and CRISP-DM methodology confirmed the relationship between monthy amount and the number of the month when considered as a sequential series. The relationship has been modeled throughout numerous locations and industries and has been found to explain approximately ~30% of the variation on average across the entire data set. It is clear that there is an upwards trend year on year in addition to variations due to seasonality. By developing more advanced models that could account for those fluctuations, a more accurate and power model could be developed. However that model may not be suitable across every industry and range.
+* **Root Mean Square Error (RMSE):** The square root of the MSE. This yields an absolute metric in the same unit as the label (in this case, numbers of rentals). The smaller the value, the better the model (in a simplistic sense, it represents the average number of rentals by which the predictions are wrong!)
 
-Considering the insights of this report, it is clear that the lower performing locations and industries should be assessed as the difference between them and the higher permofers is signifant. In addition, efforts should be made in preperation for the December - January period where transactions decrease. Finally the model developed using the available data may offer little benefit as it doesn’t account for significant variation and would have low predictive performance. More data or more complex analysis would be necessary to improve the model
+* **Coefficient of Determination (usually known as R-squared or R2):** A relative metric in which the higher the value, the better the fit of the model. In essence, this metric represents how much of the variance between predicted and actual label values the model is able to explain.
 
-<!-- Checking Linear Regression Assumptions -->
+### Basic Model Fitting
 
-Linear regression makes several assumptions about the data, such as:\
+
+```{r}
+#evaluation metrics
+# Predictions vs Test data
+  # data.frame(
+#   X = " Predictions vs Test data",
+#   R2 = rsquare(pred, data = test_set_1_1),
+#   RMSE = rmse(pred, data = test_set_1_1),
+#   MAE = mae(pred, data = test_set_1_1)
+# )
+
+# Predictions vs Test data
+evaluation_metrics_test_1_1 <- data.frame(
+  X = "Predictions vs Test data",
+  R2 = rsquare(M1_1, data = test_set_1_1),
+  RMSE = rmse(M1_1, data = test_set_1_1),
+  MAE = mae(M1_1, data = test_set_1_1)
+)
+
+rmarkdown::paged_table(evaluation_metrics_test_1_1)
+```
+
+
+
+```{r}
+# Fitted value vs Train data
+evaluation_metrics_train_1_1 <- data.frame(
+  X = "Fitted value vs Train data",
+  R2 = rsquare(M1_1, data = train_set_1_1),
+  RMSE = rmse(M1_1, data = train_set_1_1),
+  MAE = mae(M1_1, data = train_set_1_1)
+)
+
+rmarkdown::paged_table(evaluation_metrics_train_1_1)
+```
+
+```{r}
+test_error <- evaluation_metrics_test_1_1$RMSE/mean(test_set_1_1$mean_amount) 
+test_error
+```
+The performance of prediction is significantly lower than the model’s performance on train data. The R2 is 0.55 lower than 0.83, which presents its low fit to the actual data. The prediction error RMSE is 11293, representing an error rate of ~ 6%, which is still good.
+
+## Linear Regression Assumptions
+
+Linear regression makes several assumptions about the data, such as:
+
 * Linearity of the data\
 * Normality of residuals\
 * Homogeneity of residuals variance - whether variation of observations around the regression line is constant\
 * Independence of residuals error terms\
 All these assumptions can be checked by producing some diagnostic plots visualizing the residual errors. We would like to analyze model3 as it is the best model according to ANOVA.
+
+```{r}
+# plot the model
+par(mfrow=c(2,2)) 
+plot(M1_1)
+```
 
 * **For linearity assumption:** look at Residuals vs.Fitted plot. A horizontal line, without distinct patterns is an indication for a linear relationship is a good sign in this graph. For model3 : It is can be clearly seen on our plot!\
 * **For normality assumption:** look at Q-Q plot. If residuals are normally distributed, the residuals points are supposed to follow the straight dashed line. For model3 : Yay! Looks like this plot shows good stuff!\
@@ -802,11 +834,13 @@ All these assumptions can be checked by producing some diagnostic plots visualiz
 * To identify outliers, which extreme values might influence the regression results can be identified with the Residuals vs Leverage plot. Here we can spot only one of them.
 
 
-```{r}
-# plot the model
-par(mfrow=c(2,2)) 
-plot(M1_3)
-```
+# Conclusion
+
+Data analysis and CRISP-DM methodology confirmed the relationship between monthy amount and the number of the month when considered as a sequential series. The relationship has been modeled throughout numerous locations and industries and has been found to explain approximately ~30% of the variation on average across the entire data set. It is clear that there is an upwards trend year on year in addition to variations due to seasonality. By developing more advanced models that could account for those fluctuations, a more accurate and power model could be developed. However that model may not be suitable across every industry and range.
+
+Considering the insights of this report, it is clear that the lower performing locations and industries should be assessed as the difference between them and the higher permofers is signifant. In addition, efforts should be made in preperation for the December - January period where transactions decrease. Finally the model developed using the available data may offer little benefit as it doesn’t account for significant variation and would have low predictive performance. More data or more complex analysis would be necessary to improve the model
+
+
 
 # References
 

@@ -72,7 +72,8 @@ library(ggpubr)       # comebine plots into single page
 theme_set(theme_pubr())
 library(reshape2)     # transpose table
 library(fmsb)         # create radar chart
-library(modelr)       #  computing regression model performance metrics
+library(modelr)       # computing regression model performance metrics
+library(caret)        # streamline the model training process
 
 ```
 
@@ -755,6 +756,141 @@ ggplot(newData) +
 ```
 
 ## Advanced Model Fitting
+
+We want to apply our model (mean amount date + month number) across all industries and geographical locations. To do this, I will construct a loop function as `calculate_predictions` to run everything through.
+
+To be more specific, the loop function will do the following tasks:
+
+1. Train the model for each industry and location.\
+2. Include a column for December 2016 in the table.\
+3. Calculate the mean square error (MSE) and root mean square error (RMSE).\
+4. Make a December 2016 prediction.\
+5. Consolidate all data into a dataframe.\
+
+```{r}
+calculate_predictions <- function(df, industries, locations) {
+  
+  output = data.frame()
+  
+  # Want to make sure we capture a couple of months from the preceeding year to capture the seasonal data
+  testingNum = 9
+  
+  for (ind in industries) {
+    for (loc in locations) {
+      
+      # Create a subset of the data
+      temp = df[df$industry == ind & df$location == loc, ]
+      
+      # Check to make sure you have at least 'trainingMultiplier' times the number of training rows than testing rows
+      if (length(unique(temp$date)) >= testingNum) {
+        
+        # Arrange dataset by date
+        arrange(temp, date)
+        
+        
+        # Training number is the number of rows minus the testingNum
+        # Use data for the year 2016 to test accuracy
+        testingSet <- temp[temp$date >=	"2016-01-01",]   
+        # Training set
+        # Use data for the year 2016 for forecasting
+        trainingSet <- temp[(temp$date < "2016-01-01"),]
+       
+        # Run the model
+        training.model = lm(mean_amount~date+month_number, data=trainingSet)
+        # testing.model = lm(monthly_amount~time_number, data=testingSet)
+        
+        # Calculate the mean standard error
+        training.mse <- mean(residuals(training.model)^2)
+        #testing.mse <- mean(residuals(testing.model)^2)
+        
+        # Calculate root mean squared error
+        training.rmse <- sqrt(training.mse)
+        # testing.rmse <- sqrt(testing.mse)
+        
+        ### Now, add an extra row into temp for the December 2016 prediction, giving December 2016 a monthly_amount of 0
+        
+        # Create a dataframe containing just the December 2016 data
+        december_2016 = data.frame(date = "2016-12-01",
+                                   industry=ind,
+                                   location=loc,
+                                   avg=0,
+                                   month="12",
+                                   year="2016")
+        
+        # convert date column to date format
+        december_2016$date <- as.Date(december_2016$date,format = "%Y/%m/%d")
+        
+        # Ensure temp is of type data frame
+        temp = as.data.frame(temp)
+        #testingSet = as.data.frame(testingSet)
+        
+        # Add the December 2016 row
+        temp = dplyr::bind_rows(temp, december_2016)
+        # testingSet = rbind(testingSet, december_2016)
+        
+        # Output a prediction based on all rows and add it to the temp data frame
+        temp$prediction = predict(training.model, temp)
+        
+        # Get the last prediction value (which is the Dec 2016 value).
+        train_dec_2016_prediction = tail(temp$prediction, 1)
+        
+        # Create row to add to the output data frame, including industry and location variables
+        dataRow = c(ind,loc,training.rmse,train_dec_2016_prediction)
+        
+      } else {
+        # Append entry to output data frame when not enough data to compute
+        dataRow = c(ind,loc,NA,NA)
+      }
+      
+      # Add the row to the output dataframe
+      output = rbind(output, dataRow)
+    }
+  }
+  
+  #Add column names to the output data frame
+  colnames(output) <- c("Industry","Location", "RMSE", "Dec 2016 Prediction")
+  
+  #Return the output
+  return(output)
+}
+
+
+# Get the list of unique industries, sorted in numerical order 
+industries <- sort(unique(aggregated_transactions$industry))
+# Get the list of unique locations, sorted in numerical order
+locations <- sort(unique(aggregated_transactions$location))
+
+# Calculate the predictions for all industry and location pairs
+all_predictions <- calculate_predictions(aggregated_transactions, industries, locations)
+
+# Order by RMSE
+arrange(all_predictions, RMSE)
+```
+
+```{r}
+# Using the aggregated dataset from part 2 (agg_data)
+# Get the list of unique industries, sorted in numerical order 
+industries_df <- sort(unique(aggregated_transactions$industry))
+
+# Get the list of unique locations, sorted in numerical order
+locations_df <- sort(unique(aggregated_transactions$location))
+
+industries_df <- as.data.frame(industries_df)
+locations_df <- as.data.frame(locations_df)
+locations_df <- as.data.frame(locations_df)
+
+# Calculate the predictions for all industry and location combinations
+all_pred_df <- calculate_predictions(aggregated_transactions, industries_df, locations_df)
+View(all_pred_df)
+
+# 3.c)
+### What might be causing the models on these two industries and locations to be performing poorly (HINT: Some plots may help here…)? How might you fix this in future?
+
+plot_O <- plot(model_all, which = 1)
+plot_P <- plot(model_all, which = 2)
+plot_Q <- plot(model_all, which = 3)
+plot_R <- plot(model_all, which = 5)
+```
 
 # Evaluation 
 

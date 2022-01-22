@@ -74,7 +74,8 @@ library(reshape2)     # transpose table
 library(fmsb)         # create radar chart
 library(modelr)       # computing regression model performance metrics
 library(caret)        # streamline the model training process
-
+library(forecast)     # times-series forecasting
+library(xts)          # convert df to ts object
 ```
 
 Once libraries are loaded, we explore the data with the goal of understanding its dimensions, data types, and distribution of values. In this assignment, a time series data set of financial transactions was used as the major source of data. The attributes information is specifically presented in Appendix []. 
@@ -321,14 +322,23 @@ ggarrange(monthly_amount_plot,
 
 Number of transactions and total amount of sales rose sharply throughout the years, from 2013 to 2017. The seasonal trend can be found on total amount of sales while the up trend for number of transactions is quite smooth. 
 
-A useful variation on the seasonal plot uses polar coordinates as the following illustration.
+I would like to decompose the data to check the seasonal, trend and error from the data from ts object with daily and weekly seasonality
+
+```{r}
+# convert df to ts object
+
+ts_df <- ts(transaction_df[-2], frequency=12, start = c(2013, 1), end=c(2016,11))
+decompose_ts_df <- decompose(ts_df)
+autoplot(decompose_ts_df)
+```
+
+We could see that there are seasonal pattern, although the trend is not clear yet. To investigate more, we would make yearly polar plot:
 
 ```{r fig.align="center", fig.cap="Seasonal Trend Over the Years", message=FALSE, warning=FALSE}
 ############################################################
 # Data Visualization: Seasonal Trend Over the Years
 ############################################################
 # Create new MONTHLY_TREND df to plot seasonal transaction trend
-set.seed(99)
 new_ts_df <- sqldf(
 "SELECT
    strftime('%m', date) as month,   --extract month from date column                   
@@ -465,7 +475,7 @@ aggregate_transactions <- function(df) {
   # Aggregate the data, grouping by date, industry and location, and calculating the mean monthly_amount
   output = df %>%
     group_by(date, industry, location) %>%
-    summarize(mean_amount = mean(monthly_amount, na.rm = TRUE))
+    summarize(monthly_amount = mean(monthly_amount, na.rm = TRUE))
   
   # Let's also create a column for the month number and another one for year number
   output = output %>%
@@ -529,7 +539,7 @@ I will generate an additional data set that filtered only Industry 1 and Locatio
 ```{r}
 # create new df filter by only Location 1 & Industry 1
 agg_1_1 <- aggregated_transactions %>% 
-  filter( industry == 1, location == 1)
+  filter(industry == 1, location == 1)
 
 # # Create train and test
 # use the adjusted data set with new features
@@ -558,7 +568,7 @@ train_test <- sqldf(
 # plot year range of train set & test set (L1 & I1)
 
 ggplot(train_test) +
- aes(x = date, y = mean_amount, colour = type) +
+ aes(x = date, y = monthly_amount, colour = type) +
  geom_line(size = 0.5) +
  scale_color_hue(direction = 1) +
  labs(x = "Year", y = "Total monthly amount", title = "Train-Test Split", subtitle = "Location 1 & Industry 1") +
@@ -577,7 +587,7 @@ aggregated_transactions %>%
  filter(location >= 1L & location <= 
  1L) %>%
  ggplot() +
-  aes(x = date, y = mean_amount, colour = year_number) +
+  aes(x = date, y = monthly_amount, colour = year_number) +
   geom_line(size = 0.7) +
   geom_point(size=1) +
   scale_color_brewer(palette = "Dark2", direction = 1) +
@@ -606,7 +616,7 @@ However, it is worth mentioning that the year-end trend in 2016 was upward, whic
 aggregated_transactions %>%
  filter(industry %in% "1") %>%
  ggplot() +
- aes(x = month_number, fill = year_number, weight = mean_amount) +
+ aes(x = month_number, fill = year_number, weight = monthly_amount) +
  geom_bar() +
  scale_fill_manual(values = c(`2013` = "#EBEBAE", `2014` = "#BBE395", `2015` = "#379E54", `2016` = "#004529"
  )) +
@@ -642,10 +652,10 @@ Noted that even though we start the model with all variables, I will exclude the
 ################################################################################
 # M1: 2 VARIABLE - date + month_number
 ################################################################################
-M1_1 <- lm(mean_amount~date+month_number, data =train_set_1_1)
+M1_1 <- lm(monthly_amount~date+month_number, data =train_set_1_1)
 summary(M1_1)
 ```
-The month number variable is introduced to accommodate for the seasonality of the sales amount. As summarized in the linear model with the formula `formula = mean_amount ~ date + month_number`, this model performs quite impressively with the Adjusted R-Square equivalent to 0.7457. In other words, this indicates that approximately 74,57% observations in the training set are explained by the model.
+The month number variable is introduced to accommodate for the seasonality of the sales amount. As summarized in the linear model with the formula `formula = monthly_amount ~ date + month_number`, this model performs quite impressively with the Adjusted R-Square equivalent to 0.7457. In other words, this indicates that approximately 74,57% observations in the training set are explained by the model.
 
 #### Model 2: Fit the model with `month_number` variable
 
@@ -653,7 +663,7 @@ The month number variable is introduced to accommodate for the seasonality of th
 ################################################################################
 # M2: 1 VARIABLE - month_number
 ################################################################################
-M1_2 <-lm(mean_amount~month_number, data =train_set_1_1)
+M1_2 <-lm(monthly_amount~month_number, data =train_set_1_1)
 summary(M1_2)
 ```
 Based on the Multiple R-squared value, our Model 2 can only account for approximately 54% of the variance. This indicates that fitting the `month_number` alone provide a moderate predictor of `monthly_amount` which specifically perform worse than the first model. We can also get confirmation by looking at the p-value of 0.02583 which tells us that the month predictors unlikely to be a good fit to the data.
@@ -665,7 +675,7 @@ Based on the Multiple R-squared value, our Model 2 can only account for approxim
 ################################################################################
 # M3: 1 VARIABLE - date
 ################################################################################
-M1_3 <-lm(mean_amount~date, data =train_set_1_1)
+M1_3 <-lm(monthly_amount~date, data =train_set_1_1)
 summary(M1_3)
 ```
 With the third one where we fit only the `date` variable to the model, it even get a worse performance with only 36% of the variability in the average monthly sales amount is explained by it, leaving a whopping of unexplained 64% variance.
@@ -681,7 +691,7 @@ After having chosen the Model 1 as the final model, my next step is to create a 
 
 ```{r message=FALSE, warning=FALSE}
 # assign new variable for column names
-x <- c("date", "industry", "location", "mean_amount","month_number","year_number","type")
+x <- c("date", "industry", "location", "monthly_amount","month_number","year_number","type")
 
 # create new df for fitted df
 fit_df <- data.frame(train_set_1_1[-7]) %>% mutate(type="Fitted")
@@ -694,7 +704,7 @@ colnames(pred_df) <- x
 dec2016<-data.frame(date = "2016/12/01",
                     industry="1",
                     location="1",
-                    mean_amount = 0,
+                    monthly_amount = 0,
                     month_number="12",
                     year_number="2016",
                     type="Predicted"
@@ -703,17 +713,16 @@ dec2016<-data.frame(date = "2016/12/01",
 dec2016$date <- as.Date(dec2016$date,format = "%Y/%m/%d")
 
 ## Use predict function + model we just built and apply to dec_2016 dataframe
-fit_df$mean_amount <- predict(M1_1, train_set_1_1)
-pred_df$mean_amount <- predict(M1_1, test_set_1_1)
+fit_df$monthly_amount <- predict(M1_1, train_set_1_1)
+pred_df$monthly_amount <- predict(M1_1, test_set_1_1)
 pred <- predict(M1_1, dec2016)
-dec2016$mean_amount <- pred
+dec2016$monthly_amount <- pred
 pred_df <- sqldf(
   "SELECT * FROM pred_df 
   UNION ALL
   SELECT * FROM dec2016"
 )
 ```
-
 
 Next, I will examine whether our December 2016 forecast reasonable by plotting a line plot with the predicted data.
 
@@ -733,7 +742,7 @@ newData %>%
  filter(!(year_number %in% "2016")) %>%
  filter(!(type %in% "Predicted")) %>%
  ggplot() +
-  aes(x = date, y = mean_amount, colour = type) +
+  aes(x = date, y = monthly_amount, colour = type) +
   geom_line(size = 0.5) +
   scale_color_hue(direction = 1) +
   labs(
@@ -745,7 +754,7 @@ newData %>%
 
 # Plot prediction from MLR
 ggplot(newData) +
- aes(x = date, y = mean_amount, colour = type) +
+ aes(x = date, y = monthly_amount, colour = type) +
  geom_line(size = 0.7) +
  scale_color_hue(direction = 1) +
  labs(x = "Year", y = "Mean transaction amount", title = "December 2016 Prediction") +
@@ -768,128 +777,16 @@ To be more specific, the loop function will do the following tasks:
 5. Consolidate all data into a dataframe.\
 
 ```{r}
-calculate_predictions <- function(df, industries, locations) {
-  
-  output = data.frame()
-  
-  # Want to make sure we capture a couple of months from the preceeding year to capture the seasonal data
-  testingNum = 9
-  
-  for (ind in industries) {
-    for (loc in locations) {
-      
-      # Create a subset of the data
-      temp = df[df$industry == ind & df$location == loc, ]
-      
-      # Check to make sure you have at least 'trainingMultiplier' times the number of training rows than testing rows
-      if (length(unique(temp$date)) >= testingNum) {
-        
-        # Arrange dataset by date
-        arrange(temp, date)
-        
-        
-        # Training number is the number of rows minus the testingNum
-        # Use data for the year 2016 to test accuracy
-        testingSet <- temp[temp$date >=	"2016-01-01",]   
-        # Training set
-        # Use data for the year 2016 for forecasting
-        trainingSet <- temp[(temp$date < "2016-01-01"),]
-       
-        # Run the model
-        training.model = lm(mean_amount~date+month_number, data=trainingSet)
-        # testing.model = lm(monthly_amount~time_number, data=testingSet)
-        
-        # Calculate the mean standard error
-        training.mse <- mean(residuals(training.model)^2)
-        #testing.mse <- mean(residuals(testing.model)^2)
-        
-        # Calculate root mean squared error
-        training.rmse <- sqrt(training.mse)
-        # testing.rmse <- sqrt(testing.mse)
-        
-        ### Now, add an extra row into temp for the December 2016 prediction, giving December 2016 a monthly_amount of 0
-        
-        # Create a dataframe containing just the December 2016 data
-        december_2016 = data.frame(date = "2016-12-01",
-                                   industry=ind,
-                                   location=loc,
-                                   avg=0,
-                                   month="12",
-                                   year="2016")
-        
-        # convert date column to date format
-        december_2016$date <- as.Date(december_2016$date,format = "%Y/%m/%d")
-        
-        # Ensure temp is of type data frame
-        temp = as.data.frame(temp)
-        #testingSet = as.data.frame(testingSet)
-        
-        # Add the December 2016 row
-        temp = dplyr::bind_rows(temp, december_2016)
-        # testingSet = rbind(testingSet, december_2016)
-        
-        # Output a prediction based on all rows and add it to the temp data frame
-        temp$prediction = predict(training.model, temp)
-        
-        # Get the last prediction value (which is the Dec 2016 value).
-        train_dec_2016_prediction = tail(temp$prediction, 1)
-        
-        # Create row to add to the output data frame, including industry and location variables
-        dataRow = c(ind,loc,training.rmse,train_dec_2016_prediction)
-        
-      } else {
-        # Append entry to output data frame when not enough data to compute
-        dataRow = c(ind,loc,NA,NA)
-      }
-      
-      # Add the row to the output dataframe
-      output = rbind(output, dataRow)
-    }
-  }
-  
-  #Add column names to the output data frame
-  colnames(output) <- c("Industry","Location", "RMSE", "Dec 2016 Prediction")
-  
-  #Return the output
-  return(output)
-}
-
-
-# Get the list of unique industries, sorted in numerical order 
 industries <- sort(unique(aggregated_transactions$industry))
-# Get the list of unique locations, sorted in numerical order
 locations <- sort(unique(aggregated_transactions$location))
 
-# Calculate the predictions for all industry and location pairs
-all_predictions <- calculate_predictions(aggregated_transactions, industries, locations)
-
-# Order by RMSE
-arrange(all_predictions, RMSE)
-```
-
-```{r}
-# Using the aggregated dataset from part 2 (agg_data)
-# Get the list of unique industries, sorted in numerical order 
-industries_df <- sort(unique(aggregated_transactions$industry))
-
-# Get the list of unique locations, sorted in numerical order
-locations_df <- sort(unique(aggregated_transactions$location))
-
-industries_df <- as.data.frame(industries_df)
-locations_df <- as.data.frame(locations_df)
-locations_df <- as.data.frame(locations_df)
-
-# Calculate the predictions for all industry and location combinations
-all_pred_df <- calculate_predictions(aggregated_transactions, industries_df, locations_df)
-View(all_pred_df)
-
-# 3.c)
-### What might be causing the models on these two industries and locations to be performing poorly (HINT: Some plots may help here…)? How might you fix this in future?
-
-plot_O <- plot(model_all, which = 1)
-plot_P <- plot(model_all, which = 2)
-plot_Q <- plot(model_all, which = 3)
-plot_R <- plot(model_all, which = 5)
+for ind in industries{
+  for loc in locations{
+    temp = aggregated_transactions[aggregated_transactions$industry=ind & aggregated_transactions$location=loc,]
+    
+    if length(uni)
+  }
+}
 ```
 
 # Evaluation 
@@ -905,7 +802,6 @@ We can quantify the residuals by calculating a number of commonly used evaluatio
 * **Coefficient of Determination (usually known as R-squared or R2):** A relative metric in which the higher the value, the better the fit of the model. In essence, this metric represents how much of the variance between predicted and actual label values the model is able to explain.
 
 ### Basic Model Fitting
-
 
 ```{r}
 #evaluation metrics
@@ -943,7 +839,7 @@ rmarkdown::paged_table(evaluation_metrics_train_1_1)
 ```
 
 ```{r}
-test_error <- evaluation_metrics_test_1_1$RMSE/mean(test_set_1_1$mean_amount) 
+test_error <- evaluation_metrics_test_1_1$RMSE/mean(test_set_1_1$monthly_amount) 
 test_error
 ```
 The performance of prediction is significantly lower than the model’s performance on train data. The R2 is 0.55 lower than 0.83, which presents its low fit to the actual data. The prediction error RMSE is 11293, representing an error rate of ~ 6%, which is still good.
@@ -975,8 +871,6 @@ plot(M1_1)
 Data analysis and CRISP-DM methodology confirmed the relationship between monthy amount and the number of the month when considered as a sequential series. The relationship has been modeled throughout numerous locations and industries and has been found to explain approximately ~30% of the variation on average across the entire data set. It is clear that there is an upwards trend year on year in addition to variations due to seasonality. By developing more advanced models that could account for those fluctuations, a more accurate and power model could be developed. However that model may not be suitable across every industry and range.
 
 Considering the insights of this report, it is clear that the lower performing locations and industries should be assessed as the difference between them and the higher permofers is signifant. In addition, efforts should be made in preperation for the December - January period where transactions decrease. Finally the model developed using the available data may offer little benefit as it doesn’t account for significant variation and would have low predictive performance. More data or more complex analysis would be necessary to improve the model
-
-
 
 # References
 

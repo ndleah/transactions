@@ -777,16 +777,15 @@ To be more specific, the loop function will do the following tasks:
 5. Consolidate all data into a dataframe.\
 
 ```{r}
-industries <- sort(unique(aggregated_transactions$industry))
-locations <- sort(unique(aggregated_transactions$location))
-
-for ind in industries{
-  for loc in locations{
-    temp = aggregated_transactions[aggregated_transactions$industry=ind & aggregated_transactions$location=loc,]
-    
-    if length(uni)
-  }
-}
+# industries <- sort(unique(aggregated_transactions$industry))
+# locations <- sort(unique(aggregated_transactions$location))
+# 
+# for ind in industries{
+#   for loc in locations{
+#     temp = aggregated_transactions[aggregated_transactions$industry=ind & aggregated_transactions$location=loc,]
+#   
+#   }
+# }
 ```
 
 # Evaluation 

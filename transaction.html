@@ -11,7 +11,7 @@
 
 <meta name="author" content="Leah Nguyen" />
 
-<meta name="date" content="2022-01-22" />
+<meta name="date" content="2022-01-24" />
 
 <title>MLR on Time-Series Financial Dataset</title>
 
@@ -259,7 +259,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">MLR on Time-Series Financial Dataset</h1>
 <h4 class="author">Leah Nguyen</h4>
-<h4 class="date">2022-01-22</h4>
+<h4 class="date">2022-01-24</h4>
 
 </div>
 
@@ -870,7 +870,7 @@ test_set &lt;- split_list[[2]]</code></pre>
 <p>I will generate an additional data set that filtered only Industry 1 and Location 1 records. The train and split test for the Advanced Model Fitting section can be kept the same as there are no further adjustments needed.</p>
 <pre class="r"><code># create new df filter by only Location 1 &amp; Industry 1
 agg_1_1 &lt;- aggregated_transactions %&gt;% 
-  filter( industry == 1, location == 1)
+  filter(industry == 1, location == 1)
 
 # # Create train and test
 # use the adjusted data set with new features
@@ -1160,17 +1160,15 @@ ggplot(newData) +
 <li>Consolidate all data into a dataframe.<br />
 </li>
 </ol>
-<pre class="r"><code># mlr_all &lt;- lm(monthly_amount ~ date + month_number, data = train_set)
+<pre class="r"><code># industries &lt;- sort(unique(aggregated_transactions$industry))
+# locations &lt;- sort(unique(aggregated_transactions$location))
 # 
-# # Predictions vs Test data
-# evaluation_metrics_test_1_1 &lt;- data.frame(
-#   X = &quot;Predictions vs Test data&quot;,
-#   R2 = rsquare(mlr_all, data = test_set),
-#   RMSE = rmse(mlr_all, data = test_set),
-#   MAE = mae(mlr_all, data = test_set)
-# )
-# 
-# rmarkdown::paged_table(evaluation_metrics_test_1_1)</code></pre>
+# for ind in industries{
+#   for loc in locations{
+#     temp = aggregated_transactions[aggregated_transactions$industry=ind &amp; aggregated_transactions$location=loc,]
+#   
+#   }
+# }</code></pre>
 </div>
 </div>
 <div id="evaluation" class="section level1" number="7">

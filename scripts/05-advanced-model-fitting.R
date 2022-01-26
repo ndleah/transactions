@@ -119,7 +119,7 @@ for (i in 1:nrow(mods_df)) {
 
 
 #### save all predictions to file ####
-# Prepare a data set for all predections
+# Prepare a data set for all predictions
 pred_all <- mods_df %>% 
   mutate(date = dmy(paste("01", as.character(month), as.integer(year), sep = "-"))) %>% 
   select(date, industry, location, monthly_amount)

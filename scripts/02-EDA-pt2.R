@@ -1,9 +1,16 @@
-########################################################
-# DATA UNDERSTANDING: EDA PART 2 - BUSINESS INSIGHTS
-########################################################
-# ------------------------------------------------------
-# LOAD THE LIBRARIES
-# ------------------------------------------------------
+#################################################################
+##                   MLAA - Assignment AT1a                    ##
+##               MLR model on Financial Data set               ##
+##                    Author: Leah Nguyen                      ##
+#################################################################
+
+#################################################################
+##                     Task 1 - EDA (Pt.2)                     ##
+#################################################################
+
+##----------------------------------------------------------------
+##  Load the Libraries                                          --
+##----------------------------------------------------------------
 library(ggplot2)      # data visualization
 library(forecast)     # times-series forecasting
 library(ggradar)      # plot seasonal trend
@@ -15,9 +22,14 @@ library(reshape2)     # transpose table
 library(fmsb)         # create radar chart
 
 
-# ------------------------------------------------------
-# CREATE NEW DF: TRANSACTION AMOUNT VS. TRANSACTION NUMBER
-# ------------------------------------------------------
+##----------------------------------------------------------------
+##  Data Visualization                                          --
+##----------------------------------------------------------------
+
+##:::::::::::::::::::::::::::::::::::::::::
+##  1. Transaction Amount & # Transaction  
+##:::::::::::::::::::::::::::::::::::::::::
+
 # create new df contain total transaction amount
 transaction_amount <- sqldf(
   "SELECT
@@ -29,7 +41,6 @@ GROUP BY date                                -- filter by date
 ORDER BY date
 "
 )
-
 
 # create new df contain number of transaction
 transaction_count <- sqldf(
@@ -43,50 +54,10 @@ ORDER BY date
 "
 )
 
-
 # merge 2 df into 1 new TRANSACTION df vertically 
 transaction_df <- rbind(transaction_amount, 
                         transaction_count)
 
-
-# ------------------------------------------------------
-# CREATE NEW DF: INDUSTRY VS. LOCATION
-# ------------------------------------------------------
-# create new INDUSTRY df contain total transaction by industry over time
-industry <- sqldf(
-  "SELECT
-  date,
-  industry,
-  SUM(monthly_amount) AS transaction_amount, -- sum total transaction amount
-  COUNT(*) as transaction_count              -- count total number of transactions
-FROM df
-GROUP BY 
-  date,                                      -- filter by date
-  industry                                   -- filter by industry
-ORDER BY date
-"
-)
-
-
-# create new LOCATION df contain total transaction by location over time
-location <- sqldf(
-  "SELECT
-  date,
-  location,
-  SUM(monthly_amount) AS transaction_amount, -- sum total transaction amount
-  COUNT(*) as transaction_count              -- count total number of transactions
-FROM df
-GROUP BY 
-  date,                                      -- filter by date
-  location                                   -- filter by location
-ORDER BY date
-"
-)
-
-
-# ------------------------------------------------------
-# Data Visualization: Transaction amount vs. transaction number
-# ------------------------------------------------------
 # plot transaction amount over time
 monthly_amount_plot <- transaction_df %>%
   # filter by transaction amount only
@@ -122,17 +93,15 @@ monthly_count_plot <- transaction_df %>%
        subtitle = "2013 to 2016") +
   theme_minimal()
 
-
 ## combine individual plots into a single page  
 ggarrange(monthly_amount_plot,
           monthly_count_plot,
           ncol = 2, nrow = 1)
 
+##::::::::::::::::::::::::::::::::::::::
+##  2. Time-series and Seasonal Trend 
+##::::::::::::::::::::::::::::::::::::::
 
-# ------------------------------------------------------
-# Data Visualization: Time-series and Seasonal Trend
-# ------------------------------------------------------
-# 1. MULTIPLICAPTIVE DECOMPOSITION SEASONAL PLOT
 ## convert df to ts object
 ts_df <- ts(transaction_amount[-2], frequency=6, start = 2013,end = 2016)
 
@@ -148,7 +117,6 @@ autoplot(decompose_ts_df)+
   ggtitle("Classical Multiplicative Decomposition of Transaction Amount")
 
 
-# 2. SEASONAL RADAR CHART 
 ## Create new MONTHLY_TREND df to plot seasonal transaction trend
 new_ts_df <- sqldf(
   "SELECT
@@ -166,7 +134,6 @@ ORDER BY
   year
 "
 )
-
 
 ## transpose the dataset to prepare for the data visualization
 monthly_trend <- recast(new_ts_df, 
@@ -203,15 +170,15 @@ colors_border=c(colr_1,
 
 
 ## plot with default options:
-seasonal_mul_plot <- 
-  radarchart(data, axistype=0,
-             #custom polygon
-             pcol=colors_border, plwd=2 , plty=1,
-             #custom the grid
-             cglcol="grey", cglty=1, axislabcol="grey", cglwd=0.8,
-             #custom labels
-             vlcex=0.8, title=paste("Transaction Seasonal Trend"), cex.main = 1
+seasonal_mul_plot <- radarchart(data, axistype=0,
+                                #custom polygon
+                                pcol=colors_border, plwd=2 , plty=1,
+                                #custom the grid
+                                cglcol="grey", cglty=1, axislabcol="grey", cglwd=0.8,
+                                #custom labels
+                                vlcex=0.8, title=paste("Transaction Seasonal Trend"), cex.main = 1
   )
+
 ## Add a legend
 legend(seasonal_mul_plot, 
        x=1.5, y=0.5, 
@@ -225,7 +192,7 @@ legend(seasonal_mul_plot,
        title = "Year")
 
 
-# 3. BAR CHART FOR INDIVIDUAL YEARS
+# Individual Years Bar Charts
 ggplot(new_ts_df) +
   aes(x = month, fill = year, weight = transaction_amount/1e6) +
   geom_bar() +
@@ -241,11 +208,42 @@ ggplot(new_ts_df) +
   facet_wrap(vars(year), scales = "free", nrow = 1L)
 
 
-# -------------------------------------------------------------------------
-# DATA VISUALIZATION: Monthly transaction amount by country and location
-# -------------------------------------------------------------------------
+##::::::::::::::::::::::::::::::::::::::::::::::::
+##  3. Transaction Amount by Location & Industry  
+##::::::::::::::::::::::::::::::::::::::::::::::::
+
+# create new INDUSTRY df contain total transaction by industry over time
+industry <- sqldf(
+  "SELECT
+  date,
+  industry,
+  SUM(monthly_amount) AS transaction_amount, -- sum total transaction amount
+  COUNT(*) as transaction_count              -- count total number of transactions
+FROM df
+GROUP BY 
+  date,                                      -- filter by date
+  industry                                   -- filter by industry
+ORDER BY date
+"
+)
+
+# create new LOCATION df contain total transaction by location over time
+location <- sqldf(
+  "SELECT
+  date,
+  location,
+  SUM(monthly_amount) AS transaction_amount, -- sum total transaction amount
+  COUNT(*) as transaction_count              -- count total number of transactions
+FROM df
+GROUP BY 
+  date,                                      -- filter by date
+  location                                   -- filter by location
+ORDER BY date
+"
+)
+
 # plot transaction info by industry
-industry_amount_plot <- location_amount_plot <- ggplot(industry) +
+industry_amount_plot <- ggplot(industry) +
   aes(x = date, y = transaction_amount, colour = industry) +
   geom_line(size = 1) +
   scale_color_hue(direction = 1) +
@@ -254,8 +252,6 @@ industry_amount_plot <- location_amount_plot <- ggplot(industry) +
        title = "Transaction Amount",
        subtitle = "By industry (from 2013 to 2016)") +
   theme_minimal()
-
-
 
 # plot transaction info by location
 location_amount_plot <- ggplot(location) +
@@ -268,9 +264,9 @@ location_amount_plot <- ggplot(location) +
        subtitle = "By location (from 2013 to 2016)") +
   theme_minimal()
 
-
-
 # combine plots into a single page  
 ggarrange(industry_amount_plot, location_amount_plot,
           ncol = 2, nrow = 1) 
+
+
 

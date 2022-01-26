@@ -91,7 +91,7 @@ aggregated_transactions %>%
 
 
 # Plot Mean Transaction Amount Bar chart
-filter(industry %in% "1") %>%
+agg_1_1 %>%
   ggplot() +
   aes(x = month_number, fill = year_number, weight = monthly_amount) +
   geom_bar() +

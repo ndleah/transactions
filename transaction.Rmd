@@ -998,6 +998,17 @@ To be more specific, the loop function will do the following tasks:
 4. Make a December 2016 prediction.\
 5. Consolidate all data into a dataframe.\
 
+We were running all locations and industries through 3 below models:
+
+* `mean_monthly ~ date + month_number`
+
+* `mean_monthly ~ date + month_number + year_number`
+
+We need to enhance the model’s complexity to overcome under-fitting
+
+* `mean_monthly ~ date + month_number * sin(2piyear)`
+
+
 ```{r}
 # industries <- sort(unique(aggregated_transactions$industry))
 # locations <- sort(unique(aggregated_transactions$location))

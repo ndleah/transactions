@@ -43,14 +43,14 @@ In our case study, the posed question related Business object paraphrased from t
 
 Following that, the **Data Understanding** phase is where we focus on understanding the data collected to support the Business Understanding and resolve the business challenge (Wijaya, 2021). Data preprocessing and data visualization techniques play an essential role in this. Thus, I'm going to divide the section into 2 main components:
 
-* [Exploratory Data Analysis (Part 1) - The Dataset](#eda1)\
+* [Exploratory Data Analysis (Part 1) - The Dataset](#eddf)\
   * [**Stage 1:** Basic Exploration](#be)\
   * [**Stage 2:** Univariate, Bivariate & Multivariate Analysis](#ubma)\
 * [Exploratory Data Analysis (Part 2) - The Business Insights](#eda2)\
 
 The data was imported into the software package R to construct visualizations represented the findings found during the analysis.
 
-## Exploratory Data Analysis (Part 1) - The Dataset {#eda1}
+## Exploratory Data Analysis (Part 1) - The Dataset {#eddf}
 
 ### Stage 1: Basic Exploration {#be}
 
@@ -128,7 +128,7 @@ Additionally, I investigate further by looking at the response field. Recall fro
 plot_missing(df)
 ```
 
-From the plot, it shows that there are no missing values on any fields of data. Nevertheless, some data sets define missing observations in categorical/character columns as a new category such as `"NA"`, `"NULL"`, etc. Thus, there are chances that we possibly miss these observations, which can lay a tremendous negative impact on the real data distribution. Consequently, a further address on the missing values of our categorical columns need to be made in order to confirm this observation.
+From the plot, it shows that there are no missing values on any fields of data. Nevertheless, some data sets define missing observations in categorical/character columns as a new category such as `"NA"`, `"NULL"`, etc.  so there are chances that we possibly miss these observations, which can lay a tremendous negative impact on the real data distribution. Consequently, a further address on the missing values of our categorical columns need to be made in order to confirm this observation.
 
 ```{r}
 # convert character values of columns to upper case for better missing value inspection
@@ -162,7 +162,7 @@ sprintf(paste0("How many rows contained 0 value in monthly transaction amount?: 
 # "FALSE"
 ```
 
-The code output below interprets that there is no new missing value category exists in categorical columns. Thus, we can confirm our hypothesis that there is no missing values from both numerical and categorical columns in this data set.Furthermore, it also indicate that there are 1 row that contain odd value in `monthly_amount` column that will need to be resolved.
+The code output below interprets that there is no new missing value category exists in categorical columns. Thus, we can confirm our hypothesis that there is no missing values from both numerical and categorical columns in this data set. Furthermore, it also indicates that there are 1 row that contain odd value in `monthly_amount` column that will need to be resolved.
 
 ### Stage 2: Univariate, Bivariate & Multivariate Analysis {#ubma}
 
@@ -354,33 +354,6 @@ ggarrange(monthly_amount_plot,
 
 
 Number of transactions and total amount of sales rose sharply throughout the years, from 2013 to 2017. The seasonal trend can be found on total amount of sales while the up trend for number of transactions is quite smooth. 
-
-I would like to decompose the data to check the seasonal, trend and error from the data from ts object with daily and weekly seasonality
-
-```{r fig.align="center", fig.cap="Seasonal Trend Over the Years", message=FALSE, warning=FALSE}
-##----------------------------------------------------------------
-##  Data Visualization                                          --
-##----------------------------------------------------------------
-
-##::::::::::::::::::::::::::::::::::::::
-##  2. Time-series and Seasonal Trend 
-##::::::::::::::::::::::::::::::::::::::
-
-## convert df to ts object
-ts_df <- ts(transaction_amount[-2], frequency=6, start = 2013,end = 2016)
-
-
-## decompose the dataset
-decompose_ts_df <- decompose(ts_df)
-
-
-## plot decompose multicaptive time-series plot
-autoplot(decompose_ts_df)+ 
-  xlab("Year") + 
-  ylab("Transaction Amount") + 
-  ggtitle("Classical Multiplicative Decomposition of Transaction Amount")
-
-```
 
 We could see that there are seasonal pattern, although the trend is not clear yet. To investigate more, we would make yearly polar plot:
 
@@ -905,13 +878,13 @@ colnames(fit_df) <- x
 
 
 # create new df for prediction df
-pred_df <- data.frame(test_set_1_1[-7]) %>% 
+testset_all <- data.frame(test_set_1_1[-7]) %>% 
   # assign value type for the the dataset
   mutate(type="Predicted")
 
 
 # Rename the predicted dataset column names
-colnames(pred_df) <- x
+colnames(testset_all) <- x
 
 
 # create new df for prediction row
@@ -931,13 +904,13 @@ dec2016$date <- as.Date(dec2016$date,format = "%Y/%m/%d")
 
 ## Use predict function + model we just built and apply to dec_2016 data frame
 fit_df$monthly_amount <- predict(M1_1, train_set_1_1)
-pred_df$monthly_amount <- predict(M1_1, test_set_1_1)
+testset_all$monthly_amount <- predict(M1_1, test_set_1_1)
 pred <- predict(M1_1, dec2016)
 dec2016$monthly_amount <- pred
 
 # combine the predicted df with the new predicted row
-pred_df <- sqldf(
-  "SELECT * FROM pred_df 
+testset_all <- sqldf(
+  "SELECT * FROM testset_all 
   UNION ALL
   SELECT * FROM dec2016"
 )
@@ -952,11 +925,11 @@ agg_1_1$type <- "Real"
 
 # make sure our variables have the right format for plotting
 fit_df <- as.data.frame(fit_df)
-pred_df <- as.data.frame(pred_df)
+testset_all <- as.data.frame(testset_all)
 
 
 # merge all necessary variables into 1 single df variable with rbind
-newData <- rbind(fit_df, pred_df,agg_1_1)
+newData <- rbind(fit_df, testset_all,agg_1_1)
 
 
 # Plot goodness of the fir from our MLR
@@ -986,54 +959,13 @@ ggplot(newData) +
   theme(plot.title = element_text(face = "bold"))
 ```
 
-## Advanced Model Fitting
-
-We want to apply our model (mean amount date + month number) across all industries and geographical locations. To do this, I will construct a loop function as `calculate_predictions` to run everything through.
-
-To be more specific, the loop function will do the following tasks:
-
-1. Train the model for each industry and location.\
-2. Include a column for December 2016 in the table.\
-3. Calculate the mean square error (MSE) and root mean square error (RMSE).\
-4. Make a December 2016 prediction.\
-5. Consolidate all data into a dataframe.\
-
-We were running all locations and industries through 3 below models:
-
-* `mean_monthly ~ date + month_number`
-
-* `mean_monthly ~ date + month_number + year_number`
-
-We need to enhance the model’s complexity to overcome under-fitting
-
-* `mean_monthly ~ date + month_number * sin(2piyear)`
-
-
-```{r}
-# industries <- sort(unique(aggregated_transactions$industry))
-# locations <- sort(unique(aggregated_transactions$location))
-# 
-# for ind in industries{
-#   for loc in locations{
-#     temp = aggregated_transactions[aggregated_transactions$industry=ind & aggregated_transactions$location=loc,]
-#   
-#   }
-# }
-```
-
-# Evaluation 
-
-## Evaluation Metrics {#e}
-
 We can quantify the residuals by calculating a number of commonly used evaluation metrics. We’ll focus on the following three:
 
-* **Mean Square Error (MSE):** The mean of the squared differences between predicted and actual values. This yields a relative metric in which the smaller the value, the better the fit of the model
+* **Mean Square Error (MSE):** The mean of the squared differences between predicted and actual values. This yields a relative metric in which the smaller the value, the better the fit of the model.
 
-* **Root Mean Square Error (RMSE):** The square root of the MSE. This yields an absolute metric in the same unit as the label (in this case, numbers of rentals). The smaller the value, the better the model (in a simplistic sense, it represents the average number of rentals by which the predictions are wrong!)
+* **Root Mean Square Error (RMSE):** The square root of the MSE. This yields an absolute metric in the same unit as the label. The smaller the value, the better the model.
 
 * **Coefficient of Determination (usually known as R-squared or R2):** A relative metric in which the higher the value, the better the fit of the model. In essence, this metric represents how much of the variance between predicted and actual label values the model is able to explain.
-
-### Basic Model Fitting
 
 ```{r}
 #################################################################
@@ -1047,27 +979,24 @@ We can quantify the residuals by calculating a number of commonly used evaluatio
 # Predictions vs Test data
 evaluation_metrics_test_1_1 <- data.frame(
   X = "Predictions vs Test data",
-  R2 = rsquare(M1_1, data = test_set_1_1),
-  RMSE = rmse(M1_1, data = test_set_1_1),
-  MAE = mae(M1_1, data = test_set_1_1)
+  R2 = summary(M1_1)$r.squared,
+  RMSE = modelr::rmse(M1_1, data = test_set_1_1),
+  MAE = modelr::mae(M1_1, data = test_set_1_1)
 )
 # table formatting
 rmarkdown::paged_table(evaluation_metrics_test_1_1)
-#                          X        R2     RMSE      MAE
-# 1 Predictions vs Test data 0.5264429 11293.81 10457.18
 ```
 
 
 
 ```{r}
-
-
+library(modelr)
 # Fitted value vs Train data
 evaluation_metrics_train_1_1 <- data.frame(
   X = "Fitted value vs Train data",
-  R2 = rsquare(M1_1, data = train_set_1_1),
-  RMSE = rmse(M1_1, data = train_set_1_1),
-  MAE = mae(M1_1, data = train_set_1_1)
+  R2 = rsquare(M1_1, train_set_1_1),
+  RMSE = modelr::rmse(M1_1, train_set_1_1),
+  MAE = modelr::mae(M1_1, train_set_1_1)
 )
 # table formatting
 rmarkdown::paged_table(evaluation_metrics_train_1_1)
@@ -1078,40 +1007,248 @@ rmarkdown::paged_table(evaluation_metrics_train_1_1)
 
 ```{r}
 # Model test error
-test_error <- evaluation_metrics_test_1_1$RMSE/mean(test_set_1_1$monthly_amount) 
+test_error <- (evaluation_metrics_test_1_1$RMSE)/mean(test_set_1_1$monthly_amount) 
 # view the result
 test_error # [1] 0.06164264
 ```
 
 The performance of prediction is significantly lower than the model’s performance on train data. The R2 is 0.55 lower than 0.83, which presents its low fit to the actual data. The prediction error RMSE is 11293, representing an error rate of ~ 6%, which is still good.
 
-## Linear Regression Assumptions
 
-Linear regression makes several assumptions about the data, such as:
+## Advanced Model Fitting
 
-* Linearity of the data\
-* Normality of residuals\
-* Homogeneity of residuals variance - whether variation of observations around the regression line is constant\
-* Independence of residuals error terms\
-All these assumptions can be checked by producing some diagnostic plots visualizing the residual errors. We would like to analyze model3 as it is the best model according to ANOVA.
+We want to apply our model (mean amount + date + month number) across all industries and geographical locations. To do this, I will construct a loop function as `calculate_predictions` to run everything through.
 
-```{r}
-# plot the model
-par(mfrow=c(2,2)) 
-plot(M1_1)
+To be more specific, the loop function will do the following tasks:
+
+1. Train the model for each industry and location.\
+2. Include a column for December 2016 in the table.\
+3. Calculate the mean square error (MSE) and root mean square error (RMSE).\
+4. Make a December 2016 prediction.\
+5. Consolidate all data into a dataframe.\
+
+We were running all locations and industries through the below model:
+
+* `mean_monthly ~ time_number`
+
+In that, `time_number` represent the date order.
+
+```{r message=FALSE, warning=FALSE}
+# format the aggregate data columns to make sure they have right formats when performing modelling
+aggregated_transactions$industry <- as.numeric(aggregated_transactions$industry)
+aggregated_transactions$location <- as.numeric(aggregated_transactions$location)
+aggregated_transactions$month_number <- as.numeric(aggregated_transactions$month_number)
+aggregated_transactions$year_number <- as.numeric(aggregated_transactions$year_number)
+
+# Using the aggregated dataset from part 2 (aggregated_transactions)
+df <- aggregated_transactions
+
+calculate_predictions <- function(df, industries, locations) {
+  
+  output = data.frame()
+  
+  # Want to make sure we capture a couple of months from the preceeding year to capture the seasonal data
+  testingNum = 9
+  
+  for (ind in industries) {
+    for (loc in locations) {
+      
+      # Create a subset of the data
+      temp = df[df$industry == ind & df$location == loc, ]
+      
+      # Check to make sure you have at least 'trainingMultiplier' times the number of training rows than testing rows
+      if (length(unique(temp$date)) >= testingNum) {
+        
+        # Arrange dataset by date
+        arrange(temp, date)
+        
+        # Add a number to represent date order
+        temp$time_number = c(1:nrow(temp))
+        
+        # Training number is the number of rows minus the testingNum
+        trainingNum = nrow(temp) - testingNum
+        
+        # Training set is all rows from the start minus the number in the test set. We'll arrange again, just in case.
+        trainingSet = head(arrange(temp, time_number), trainingNum)
+        
+        # Testing set is the last 'testingNum' rows. We'll arrange again, just in case.
+        testingSet = tail(arrange(temp, time_number), testingNum)
+        
+        # Run the model
+        training.model = lm(monthly_amount~time_number, data=trainingSet)
+        # testing.model = lm(monthly_amount~time_number, data=testingSet)
+        
+        # Calculate the mean standard error
+        training.mse <- mean(residuals(training.model)^2)
+        #testing.mse <- mean(residuals(testing.model)^2)
+        
+        # Calculate root mean squared error
+        training.rmse <- sqrt(training.mse)
+        # testing.rmse <- sqrt(testing.mse)
+        
+        ### Now, add an extra row into temp for the December 2016 prediction, giving December 2016 a monthly_amount of 0
+        
+        # Create a dataframe containing just the December 2016 data
+        december_2016 = data.frame(date = "2016-12-01",
+                                   industry=ind,
+                                   location=loc,
+                                   monthly_amount=0,
+                                   month_number=12,
+                                   year_number=2016,
+                                   time_number=(nrow(temp)+1))
+        
+        # Ensure temp is of type data frame
+        temp = as.data.frame(temp)
+        #testingSet = as.data.frame(testingSet)
+        
+        # Add the December 2016 row
+        temp = rbind(temp, december_2016)
+        # testingSet = rbind(testingSet, december_2016)
+        
+        # Output a prediction based on all rows and add it to the temp data frame
+        temp$prediction = predict(training.model, temp)
+        testingSet$prediction = predict(training.model, testingSet)
+        
+        # Get the last prediction value (which is the Dec 2016 value).
+        train_dec_2016_prediction = tail(temp$prediction, 1)
+        # test_dec_2016_prediction = tail(testingSet$prediction, 1)
+        
+        # Create row to add to the output data frame, including industry and location variables
+        dataRow = c(ind,loc,training.rmse,train_dec_2016_prediction)
+        
+      } else {
+        # Append entry to output data frame when not enough data to compute
+        dataRow = c(ind,loc,NA,NA)
+      }
+      
+      # Add the row to the output dataframe
+      output = rbind(output, dataRow)
+    }
+  }
+  
+  #Add column names to the output data frame
+  colnames(output) <- c("Industry","Location", "RMSE", "Dec 2016 Prediction")
+  
+  #Return the output
+  return(output)
+}
+
+# Get the list of unique industries, sorted in numerical order 
+industries <- sort(unique(df$industry))
+# Get the list of unique locations, sorted in numerical order
+locations <- sort(unique(df$location))
+
+# Calculate the predictions for all industry and location pairs
+all_predictions <- calculate_predictions(df, industries, locations)
+
+# Order by RMSE
+rmarkdown::paged_table(arrange(all_predictions, RMSE))
 ```
 
-* **For linearity assumption:** look at Residuals vs.Fitted plot. A horizontal line, without distinct patterns is an indication for a linear relationship is a good sign in this graph. For model3 : It is can be clearly seen on our plot!\
-* **For normality assumption:** look at Q-Q plot. If residuals are normally distributed, the residuals points are supposed to follow the straight dashed line. For model3 : Yay! Looks like this plot shows good stuff!\
-* **For homoscedasticity assumption:** look at Scale-Location & Residuals vs. Leverage plots. In this case horizontal line with equally spread points is a good indication of homoscedasticity. For model3: Once again, no problems with our graph!\
-* To identify outliers, which extreme values might influence the regression results can be identified with the Residuals vs Leverage plot. Here we can spot only one of them.
+Among data sets, we picked two worst performed industries and locations by its highest RMSE:
+
+* Industry 6 & Location 1
+
+* Industry 10 & Location 8
+
+In order to find out potential reasons that lead to poor performance of these locations, I will retrain the model based on these 2 industries and locations and then plot the model in order to see how they are performing.
+
+```{r message=FALSE, include=FALSE}
+################################
+# Industry 6 & Location 1
+################################
+# set up a temporary data set of aggregated values
+i6_l1_data <- df[df$industry == 6 & df$location == 1, ]
+i6_l1_data$time_number = c(1:nrow(arrange(i6_l1_data, date)))
+
+# arrange the data by time number ot make sure it's worked properly
+arrange(i6_l1_data, time_number)
+
+# Retraining the model based on the original data split and month_number of 9
+# number of months used to capture seasonality, may need to test out other values. Initially set to 9
+month_number = 9
+#Training number is the number of rows minus the month_number
+trainingNum = nrow(arrange(i6_l1_data, date, time_number)) - month_number
+
+#Training set is all rows from the start minus the number in the test set
+trainingSet = head(arrange(i6_l1_data, date, time_number), trainingNum)
+
+# train the model
+i6_l1.lm <- lm(monthly_amount~time_number, data=trainingSet)
+
+################################
+# Industry 10 & Location 8
+################################
+
+# set up a temporary data set of aggregated values
+i10_l8_data <- df[df$industry == 10 & df$location == 8, ]
+i10_l8_data$time_number = c(1:nrow(arrange(i10_l8_data, date)))
+# arrange the data by time number ot make sure it's worked properly
+arrange(i10_l8_data, time_number)
+
+# Retraining the model based on the original data split and month_number of 9
+# number of months used to capture seasonality, may need to test out other values. Initially set to 9
+month_number = 9
+#Training number is the number of rows minus the month_number
+trainingNum_2 = nrow(arrange(i10_l8_data, date, time_number)) - month_number
+
+#Training set is all rows from the start minus the number in the test set
+trainingSet_2 = head(arrange(i10_l8_data, date, time_number), trainingNum)
+
+# train the model
+i10_l8.lm <- lm(monthly_amount~time_number, data=trainingSet_2)
+```
+
+Let's take a look at the diagnosis plots for these 2 models:
+
+```{r}
+# the diagnostic plot 
+################################
+# Industry 6 & Location 1
+################################
+par(mfrow=c(2,2))
+plot(i6_l1.lm)
+```
+
+```{r}
+################################
+# Industry 10 & Location 8
+################################
+par(mfrow=c(2,2))
+plot(i10_l8.lm)
+```
 
 
-# Conclusion
+We can see that, both models have outliers records. For industry 6 and location 1, there are 1 and 2 points which are far, above and below, from the model, respectively. For industry 10 and location 8, there 3 outliers exist above the plotted line.
 
-Data analysis and CRISP-DM methodology confirmed the relationship between monthy amount and the number of the month when considered as a sequential series. The relationship has been modeled throughout numerous locations and industries and has been found to explain approximately ~30% of the variation on average across the entire data set. It is clear that there is an upwards trend year on year in addition to variations due to seasonality. By developing more advanced models that could account for those fluctuations, a more accurate and power model could be developed. However that model may not be suitable across every industry and range.
 
-Considering the insights of this report, it is clear that the lower performing locations and industries should be assessed as the difference between them and the higher permofers is signifant. In addition, efforts should be made in preperation for the December - January period where transactions decrease. Finally the model developed using the available data may offer little benefit as it doesn’t account for significant variation and would have low predictive performance. More data or more complex analysis would be necessary to improve the model
+```{r message=FALSE, warning=FALSE}
+# plot the model
+i6_l1_model <- ggplot(data = trainingSet, mapping = aes(x = time_number, y =
+                                                          monthly_amount)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title="Model 2, Using time_number as only predictor",
+       subtitle = "industry 6, location 1",
+       x="month number",
+       y="Monthly Amount")
+
+i10_l8_model <- ggplot(data = trainingSet_2, mapping = aes(x = time_number, y =
+                                                          monthly_amount)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title="Model 2, Using time_number as only predictor",
+       subtitle = "industry 10, location 8",
+       x="month number",
+       y="Monthly Amount")
+
+## combine individual plots into a single page  
+ggarrange(i6_l1_model,
+          i10_l8_model,
+          ncol = 2, nrow = 1)
+```
+
+To confirm our theory, we plot another linear model plot for industry 10 & location 8 and industry 6 & location 1. In this plot, we can have a clearer view of outstanding outliers contain in both models. Additionally, it is also observed from the plot that the fitted line cannot catch the constant up and down trend of the monthly mean due to seasonality, that could be a reason for a poor performance. By developing more advanced models that could account for those fluctuations and removing these outliers  can likely lead to a more accurate and power model.
 
 # References
 

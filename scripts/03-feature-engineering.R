@@ -34,8 +34,8 @@ aggregate_transactions <- function(df) {
     mutate(year_number = format(as.Date(date), "%Y"))
   
   # Make sure the new columns are of the correct type
-  output$month_number = as.character(output$month_number)
-  output$year_number = as.character(output$year_number)
+  output$month_number = as.integer(output$month_number)
+  output$year_number = as.integer(output$year_number)
   
   transform(output, month_number = as.integer(month_number), year_number = as.integer(year_number))
   return(output)

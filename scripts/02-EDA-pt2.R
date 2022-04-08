@@ -98,24 +98,6 @@ ggarrange(monthly_amount_plot,
           monthly_count_plot,
           ncol = 2, nrow = 1)
 
-##::::::::::::::::::::::::::::::::::::::
-##  2. Time-series and Seasonal Trend 
-##::::::::::::::::::::::::::::::::::::::
-
-## convert df to ts object
-ts_df <- ts(transaction_amount[-2], frequency=6, start = 2013,end = 2016)
-
-
-## decompose the dataset
-decompose_ts_df <- decompose(ts_df)
-
-
-## plot decompose multicaptive time-series plot
-autoplot(decompose_ts_df)+ 
-  xlab("Year") + 
-  ylab("Transaction Amount") + 
-  ggtitle("Classical Multiplicative Decomposition of Transaction Amount")
-
 
 ## Create new MONTHLY_TREND df to plot seasonal transaction trend
 new_ts_df <- sqldf(
